@@ -18,11 +18,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         /// Adds the core elements required for EventSourcing into the build in DI framework
         /// </summary>
         /// <param name="services">The <see cref="IServiceCollection" /> that contains all the registered services</param>
-        /// <param name="optionsAccessor">An optional accessor containing <see cref="EventSourcingOptions" /></param>
+        /// <param name="options">An optional <see cref="EventSourcingOptions" /> object</param>
         /// <param name="eventAssemblies">An optional collection of assemblies where to find the event types</param>
         /// <returns>The <see cref="IServiceCollection" /> populated with all the newly registered services</returns>
-        public static IServiceCollection AddEventStore(this IServiceCollection services,
-            Action<EventSourcingOptions>? optionsAccessor = null, params Assembly[] eventAssemblies)
+        public static IServiceCollection AddEventStore(this IServiceCollection services, EventSourcingOptions? options = null, params Assembly[] eventAssemblies)
         {
             AssemblyScanning.RegisterServices(services, new[]{Assembly.GetExecutingAssembly()}, new[]
             {
@@ -33,7 +32,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
                 }
             });
 
-            services.Configure(optionsAccessor);
+            services.ConfigureOptions(options);
             services.AddServiceResolution();
             services.TryAddSingleton<GetEventTypes>(() => EventCollection.GetEventTypes(eventAssemblies));
             services.TryAddSingleton<IPersistentSubscriptionManager, PersistentSubscriptionManager>();
@@ -51,7 +50,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         public static IServiceCollection AddInMemoryEventStore(this IServiceCollection services,
             Action<EventSourcingOptions>? optionsAccessor = null, params Assembly[] eventAssemblies)
         {
-            services.AddEventStore(optionsAccessor, eventAssemblies);
+            var options = new EventSourcingOptions();
+            optionsAccessor?.Invoke(options);
+            
+            services.AddEventStore(options, eventAssemblies);
             return services.AddSingleton<IStreamStore, InMemoryStreamStore>();
         }
     }
