@@ -50,6 +50,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         /// <returns>The <see cref="IServiceCollection" /> populated with all the newly registered services</returns>
         public static IServiceCollection AddInMemoryEventStore(this IServiceCollection services,
             Action<EventSourcingOptions>? optionsAccessor = null, params Assembly[] eventAssemblies)
-            => services.AddSingleton<IStreamStore, InMemoryStreamStore>();
+        {
+            services.AddEventStore(optionsAccessor, eventAssemblies);
+            return services.AddSingleton<IStreamStore, InMemoryStreamStore>();
+        }
     }
 }
