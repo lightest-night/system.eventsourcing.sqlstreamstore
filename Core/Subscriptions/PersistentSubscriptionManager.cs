@@ -65,21 +65,18 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 var catchUpCheckpoint = await CatchSubscriptionUp(categoryName, checkpoint, eventReceived, cancellationToken);
                 if (catchUpCheckpoint != checkpoint)
                 {
-                    await _streamStore.AppendToStream(checkpointStreamId, checkpointVersion,
+                    var appendResult = await _streamStore.AppendToStream(checkpointStreamId, checkpointVersion,
                         new[] {new NewStreamMessage(Guid.NewGuid(), "checkpoint", catchUpCheckpoint.ToString())},
                         cancellationToken);
-
+                    
+                    checkpointVersion = appendResult.CurrentVersion;
                     checkpoint = catchUpCheckpoint;
                 }
-
-                int? continueAfterVersion = checkpoint;
-                if (continueAfterVersion < 0)
-                    continueAfterVersion = null;
 
                 async Task StreamMessageReceived(IStreamSubscription subscription, StreamMessage message, CancellationToken token)
                 {
                     _logger.LogInformation($"Processing event {message.Type} from subscription {subscription.Name}.");
-                    var @event = message.ToEvent(_getEventTypes(), token);
+                    var @event = await message.ToEvent(_getEventTypes(), token);
                     await eventReceived(@event, token);
 
                     var (_, failures, checkpointExpectedVersion) = Subscriptions[subscriptionId];
@@ -112,6 +109,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                             version);
                     }
                 }
+
+                var continueAfterVersion = checkpointVersion == ExpectedVersion.NoStream && checkpoint == StreamVersion.Start
+                    ? (int?) null
+                    : checkpoint;
+                
                 categorySubscription = _streamStore.SubscribeToStream(categoryName, continueAfterVersion,
                     StreamMessageReceived,
                     SubscriptionDropped,
@@ -151,11 +153,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
         public async Task<int> CatchSubscriptionUp(string streamName, int checkpoint, Func<object, CancellationToken, Task> eventReceived, CancellationToken cancellationToken = default)
         {
             var streamVersion = await _streamStore.GetLastVersionOfStream(streamName, cancellationToken);
-            if (streamVersion - checkpoint <= 50) 
+            if (streamVersion - checkpoint <= _options.SubscriptionCheckpointDelta) 
                 return checkpoint;
             
             var stopwatch = Stopwatch.StartNew();
-            var page = await _streamStore.ReadStreamForwards(streamName, checkpoint, 200, cancellationToken: cancellationToken);
+            var page = await _streamStore.ReadStreamForwards(streamName, checkpoint, _options.MaxReadStreamForward, cancellationToken: cancellationToken);
             while (page.Messages.Any())
             {
                 var events = await Task.WhenAll(page.Messages.Select(message => message.ToEvent(_getEventTypes(), cancellationToken)));

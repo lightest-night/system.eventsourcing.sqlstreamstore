@@ -24,6 +24,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
         private readonly Mock<IStreamStore> _streamStoreMock = new Mock<IStreamStore>();
         private readonly Mock<GetEventTypes> _getEventTypesMock = new Mock<GetEventTypes>();
         private readonly Mock<IHostApplicationLifetime> _applicationLifetimeMock = new Mock<IHostApplicationLifetime>();
+        private readonly EventSourcingOptions _options = new EventSourcingOptions();
         private readonly IPersistentSubscriptionManager _sut;
 
         protected PersistentSubscriptionManagerTests()
@@ -48,29 +49,29 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                 Mock.Of<ILogger<PersistentSubscriptionManager>>(),
                 _getEventTypesMock.Object,
                 _applicationLifetimeMock.Object,
-                Mock.Of<IOptions<EventSourcingOptions>>());
+                Options.Create(_options));
         }
 
         public class CategorySubscriptionTests : PersistentSubscriptionManagerTests
         {
-            private const string CategoryName = "TestCategory";
+            private readonly string _categoryName = "TestCategory".GetCategoryStreamId();
             
             public CategorySubscriptionTests()
             {
-                SetupReadStreamBackwards(CategoryName);
-                SetupReadStreamBackwards(new StreamId(CategoryName).GetCheckpointStreamId());
-                SetupReadStreamForwards(CategoryName);
+                SetupReadStreamBackwards(_categoryName);
+                SetupReadStreamBackwards(new StreamId(_categoryName).GetCheckpointStreamId());
+                SetupReadStreamForwards(_categoryName);
             }
             
             [Fact]
             public async Task Should_Get_Last_Checkpoint_Version_When_Creating_New_Category_Subscription()
             {
                 // Act
-                await _sut.CreateCategorySubscription(CategoryName, (o, token) => Task.CompletedTask,
+                await _sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask,
                     CancellationToken.None);
 
                 // Assert
-                var expectedStreamId = new StreamId(CategoryName).GetCheckpointStreamId();
+                var expectedStreamId = new StreamId(_categoryName).GetCheckpointStreamId();
                 _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamBackwards(
                         It.Is<StreamId>(streamId => streamId.Value == expectedStreamId.Value),
                         StreamVersion.End,
@@ -84,17 +85,17 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
             public async Task Should_Catch_Up_Subscription_If_Far_Behind_When_Creating_New_Category_Subscription()
             {
                 // Arrange
-                SetupReadStreamBackwards(CategoryName, 100);
+                SetupReadStreamBackwards(_categoryName, _options.SubscriptionCheckpointDelta * 2);
                 
                 // Act
-                await _sut.CreateCategorySubscription(CategoryName, (o, token) => Task.CompletedTask,
+                await _sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask,
                     CancellationToken.None);
 
                 // Assert
                 _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamForwards(
-                    It.Is<StreamId>(streamId => streamId.Value == CategoryName),
+                    It.Is<StreamId>(streamId => streamId.Value == _categoryName),
                     0,
-                    It.IsAny<int>(),
+                    _options.MaxReadStreamForward,
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()), Times.Once);
             }
@@ -103,12 +104,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
             public async Task Should_Subscribe_To_Category_Stream_When_Creating_New_Category_Subscription()
             {
                 // Act
-                var subscriptionId = await _sut.CreateCategorySubscription(CategoryName, (o, token) => Task.CompletedTask, CancellationToken.None);
+                var subscriptionId = await _sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask, CancellationToken.None);
                 
                 // Assert
                 _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.SubscribeToStream(
-                    It.Is<StreamId>(streamId => streamId.Value == CategoryName),
-                    0,
+                    It.Is<StreamId>(streamId => streamId.Value == _categoryName),
+                    null,
                     It.IsAny<StreamMessageReceived>(),
                     It.IsAny<SubscriptionDropped>(),
                     It.IsAny<HasCaughtUp>(), 
@@ -121,14 +122,14 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
             public async Task Should_Remove_Checkpoint_Stream_If_Empty_And_Error_Occurs_When_Creating_New_Category_Subscription()
             {
                 // Arrange
-                SetupReadStreamBackwards(CategoryName, 100);
+                SetupReadStreamBackwards(_categoryName, 100);
                 _getEventTypesMock.Setup(getEventTypes => getEventTypes()).Returns(new Type[0]);
                 
                 // Act
-                await Should.ThrowAsync<InvalidOperationException>(() => _sut.CreateCategorySubscription(CategoryName, (o, token) => Task.CompletedTask, CancellationToken.None));
+                await Should.ThrowAsync<InvalidOperationException>(() => _sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask, CancellationToken.None));
                 
                 // Assert
-                var checkpointStreamId = new StreamId(CategoryName).GetCheckpointStreamId();
+                var checkpointStreamId = new StreamId(_categoryName).GetCheckpointStreamId();
                 _streamStoreMock.Verify(streamStore => streamStore.DeleteStream(
                     It.Is<StreamId>(streamId => streamId.Value == checkpointStreamId.Value),
                     It.IsAny<int>(),
@@ -207,13 +208,13 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
 
         public class CloseSubscriptionTests : PersistentSubscriptionManagerTests
         {
-            private const string StreamName = "CloseTest";
+            private readonly string _streamName = "CloseTest".GetCategoryStreamId();
 
             public CloseSubscriptionTests()
             {
-                SetupReadStreamBackwards(StreamName);
-                SetupReadStreamBackwards(new StreamId(StreamName).GetCheckpointStreamId());
-                SetupReadStreamForwards(StreamName);
+                SetupReadStreamBackwards(_streamName);
+                SetupReadStreamBackwards(new StreamId(_streamName).GetCheckpointStreamId());
+                SetupReadStreamForwards(_streamName);
             }
 
             [Fact]
@@ -227,14 +228,14 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
             public async Task Should_Delete_Subscription_Checkpoint_Stream()
             {
                 // Arrange
-                var subscriptionId = await _sut.CreateCategorySubscription(StreamName, (o, token) => Task.CompletedTask, CancellationToken.None);
+                var subscriptionId = await _sut.CreateCategorySubscription(_streamName, (o, token) => Task.CompletedTask, CancellationToken.None);
                 
                 // Act
                 await _sut.CloseSubscription(subscriptionId, CancellationToken.None);
                 
                 // Assert
                 _streamStoreMock.Verify(streamStore => streamStore.DeleteStream(
-                    It.Is<StreamId>(streamId => streamId.Value == new StreamId(StreamName).GetCheckpointStreamId()),
+                    It.Is<StreamId>(streamId => streamId.Value == new StreamId(_streamName).GetCheckpointStreamId()),
                     It.IsAny<int>(),
                     It.IsAny<CancellationToken>()),
                     Times.Once);
