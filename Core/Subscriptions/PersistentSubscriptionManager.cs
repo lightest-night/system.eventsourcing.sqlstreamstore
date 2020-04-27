@@ -49,6 +49,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
 
         public async Task<Guid> CreateCategorySubscription(string categoryName, Func<object, CancellationToken, Task> eventReceived, CancellationToken cancellationToken = default)
         {
+            categoryName = categoryName.GetCategoryStreamId();
+            
             var subscriptionId = Guid.NewGuid();
             var checkpointStreamId = new StreamId(categoryName).GetCheckpointStreamId();
             var checkpointStreamData = await _streamStore.GetLastVersionOfStream<int>(checkpointStreamId, cancellationToken);
