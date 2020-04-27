@@ -21,7 +21,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
 
         [Fact]
-        public void Should_Add_The_ce_Prefix()
+        public void Should_Add_The_Category_Prefix_When_Getting_A_Checkpoint_StreamId()
         {
             // Arrange
             StreamId streamId = Guid.NewGuid().ToString();
@@ -30,7 +30,20 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
             var result = streamId.GetCheckpointStreamId();
             
             // Assert
-            result.Value.ShouldBe($"ce-{Constants.CheckpointPrefix}-{streamId.Value}");
+            result.Value.ShouldBe($"{Constants.CategoryPrefix}{Constants.CheckpointPrefix}-{streamId.Value}");
+        }
+
+        [Fact]
+        public void Should_Get_Category_StreamId()
+        {
+            // Arrange
+            StreamId streamId = Guid.NewGuid().ToString();
+            
+            // Act
+            var result = streamId.GetCategoryStreamId();
+            
+            // Assert
+            result.Value.ShouldBe($"{Constants.CategoryPrefix}{streamId.Value}");
         }
     }
 }

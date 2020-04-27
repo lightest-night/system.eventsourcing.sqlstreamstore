@@ -36,7 +36,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Projections
 
         private static string GetCategoryName(string streamId)
         {
-            var categoryName = $"ce-{Regex.Replace(streamId, @"[({]?[a-fA-F0-9]{8}[-]?([a-fA-F0-9]{4}[-]?){3}[a-fA-F0-9]{12}[})]?", string.Empty, RegexOptions.IgnoreCase)}";
+            var categoryName = $"{Constants.CategoryPrefix}{Regex.Replace(streamId, @"[({]?[a-fA-F0-9]{8}[-]?([a-fA-F0-9]{4}[-]?){3}[a-fA-F0-9]{12}[})]?", string.Empty, RegexOptions.IgnoreCase)}";
             return categoryName.Substring(0, categoryName.LastIndexOf("-", StringComparison.Ordinal));
         }
     }

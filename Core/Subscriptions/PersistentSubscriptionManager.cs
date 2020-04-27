@@ -76,6 +76,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
 
                 async Task StreamMessageReceived(IStreamSubscription subscription, StreamMessage message, CancellationToken token)
                 {
+                    _logger.LogInformation($"Processing event {message.Type} from subscription {subscription.Name}.");
                     var @event = message.ToEvent(_getEventTypes(), token);
                     await eventReceived(@event, token);
 
