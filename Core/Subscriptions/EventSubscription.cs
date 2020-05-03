@@ -39,12 +39,17 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 // There are no observers registered in the system, stop processing
                 return Task.CompletedTask;
 
+            _logger.LogInformation($"There are {_eventObservers.Count()} observers registered.");
+            foreach (var observer in _eventObservers)
+                _logger.LogInformation($"{observer.GetType().Name} observer registered.");
+
             _subscription = _streamStore.SubscribeToAll(null, StreamMessageReceived, SubscriptionDropped);
             return Task.CompletedTask;
         }
 
         private async Task StreamMessageReceived(IAllStreamSubscription subscription, StreamMessage message, CancellationToken cancellationToken)
         {
+            _logger.LogInformation($"Event {message.Type} received, sending to observers.");
             var eventSourceEvent = await message.ToEvent(_getEventTypes(), cancellationToken);
             await Task.WhenAll(_eventObservers.Select(observer => observer.EventReceived(eventSourceEvent, cancellationToken)));
         }

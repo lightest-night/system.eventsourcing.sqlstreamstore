@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +11,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Projections
     public class CategoryProjection : IEventSourceProjection
     {
         private readonly IStreamStore _streamStore;
-        private static readonly IDictionary<string, int> Checkpoints = new Dictionary<string, int>();
+        private static readonly ConcurrentDictionary<string, int> Checkpoints = new ConcurrentDictionary<string, int>();
 
         public CategoryProjection(IStreamStore streamStore)
         {
