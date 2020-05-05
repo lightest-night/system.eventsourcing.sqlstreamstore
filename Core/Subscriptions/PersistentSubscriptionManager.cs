@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
@@ -45,6 +46,20 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
 
                 Subscriptions.Clear();
             });
+        }
+
+        public async Task SaveCheckpoint(int checkpoint, [CallerMemberName] string? checkpointName = default, CancellationToken cancellationToken = default)
+        {
+            var checkpointStreamId = new StreamId(checkpointName).GetCheckpointStreamId();
+            var metadata = await _streamStore.GetStreamMetadata(checkpointStreamId, cancellationToken);
+            if (metadata == null)
+                await _streamStore.SetStreamMetadata(checkpointStreamId, maxCount: 1, cancellationToken: cancellationToken);
+
+            var lastVersion = await _streamStore.GetLastVersionOfStream(checkpointStreamId, cancellationToken);
+            await _streamStore.AppendToStream(checkpointStreamId, lastVersion + 1, new[]
+            {
+                new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, checkpoint.ToString())
+            }, cancellationToken);
         }
 
         public async Task<Guid> CreateCategorySubscription(string categoryName, Func<object, CancellationToken, Task> eventReceived, CancellationToken cancellationToken = default)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ using SqlStreamStore.Infrastructure;
 using SqlStreamStore.Streams;
 using SqlStreamStore.Subscriptions;
 using Xunit;
+// ReSharper disable ExplicitCallerInfoArgument
 
 namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscriptions
 {
@@ -51,7 +53,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                 _applicationLifetimeMock.Object,
                 Options.Create(_options));
         }
-
+        
         public class CategorySubscriptionTests : PersistentSubscriptionManagerTests
         {
             private readonly string _categoryName = "TestCategory".GetCategoryStreamId();
@@ -239,6 +241,78 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                     It.IsAny<int>(),
                     It.IsAny<CancellationToken>()),
                     Times.Once);
+            }
+        }
+
+        public class CheckpointTests : PersistentSubscriptionManagerTests
+        {
+            private const int Checkpoint = 10;
+            private const string StreamId = "Test_Stream";
+            private readonly StreamId _checkpointStreamId = new StreamId(StreamId).GetCheckpointStreamId();
+
+            public CheckpointTests()
+            {
+                SetupReadStreamBackwards(_checkpointStreamId);
+            }
+
+            [Fact]
+            public async Task Should_Get_Stream_Metadata()
+            {
+                // Arrange
+                _streamStoreMock.Setup(streamStore => streamStore.GetStreamMetadata(_checkpointStreamId, It.IsAny<CancellationToken>()))
+                    .Verifiable();
+                
+                // Act
+                await _sut.SaveCheckpoint(Checkpoint, StreamId);
+                
+                // Assert
+                _streamStoreMock.Verify();
+            }
+            
+            [Fact]
+            public async Task Should_Set_Stream_Metadata_When_A_New_Stream()
+            {
+                // Act
+                await _sut.SaveCheckpoint(Checkpoint, StreamId);
+                
+                // Assert
+                _streamStoreMock.Verify(
+                    streamStore => streamStore.SetStreamMetadata(_checkpointStreamId, It.IsAny<int>(), It.IsAny<int?>(),
+                        1, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+            }
+
+            [Fact]
+            public async Task Should_Not_Set_Stream_Metadata_If_Already_Set()
+            {
+                // Arrange
+                _streamStoreMock.Setup(streamStore =>
+                        streamStore.GetStreamMetadata(_checkpointStreamId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new StreamMetadataResult(StreamId, 1));
+                
+                // Act
+                await _sut.SaveCheckpoint(Checkpoint, StreamId);
+                
+                // Assert
+                _streamStoreMock.Verify(
+                    streamStore => streamStore.SetStreamMetadata(It.IsAny<StreamId>(), It.IsAny<int>(),
+                        It.IsAny<int?>(),
+                        It.IsAny<int?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+            }
+
+            [Fact]
+            public async Task Should_Save_Checkpoint_Into_Stream()
+            {
+                // Act
+                await _sut.SaveCheckpoint(Checkpoint, StreamId);
+                
+                // Assert
+                _streamStoreMock.Verify(
+                    streamStore => streamStore.AppendToStream(
+                        It.Is<StreamId>(streamId => streamId.Value == _checkpointStreamId.Value),
+                        ExpectedVersion.NoStream + 1,
+                        It.Is<NewStreamMessage[]>(messages =>
+                            messages.Any(message => message.JsonData == Checkpoint.ToString())),
+                        It.IsAny<CancellationToken>()), Times.Once);
             }
         }
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
+using LightestNight.System.EventSourcing.Subscriptions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SqlStreamStore;
@@ -24,13 +25,16 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
         private readonly IStreamStore _streamStore;
         private readonly IEnumerable<IEventObserver> _eventObservers;
         private readonly GetEventTypes _getEventTypes;
+        private readonly IPersistentSubscriptionManager _persistentSubscriptionManager;
 
-        public EventSubscription(ILogger<EventSubscription> logger, IStreamStore streamStore, IEnumerable<IEventObserver> eventObservers, GetEventTypes eventTypes)
+        public EventSubscription(ILogger<EventSubscription> logger, IStreamStore streamStore, IEnumerable<IEventObserver> eventObservers, GetEventTypes eventTypes,
+            IPersistentSubscriptionManager persistentSubscriptionManager)
         {
             _logger = logger;
             _streamStore = streamStore;
             _eventObservers = eventObservers;
             _getEventTypes = eventTypes;
+            _persistentSubscriptionManager = persistentSubscriptionManager;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -52,8 +56,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 ? (int?) null
                 : await checkpointData.GetDataFunc(stoppingToken);
 
-            await _streamStore.SetStreamMetadata(CheckpointStreamId, maxCount: 1, cancellationToken: stoppingToken);
-            
             _subscription = _streamStore.SubscribeToAll(checkpoint, StreamMessageReceived, SubscriptionDropped);
         }
 
@@ -74,11 +76,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             var eventSourceEvent = await message.ToEvent(_getEventTypes(), cancellationToken);
             await Task.WhenAll(_eventObservers.Select(observer => observer.EventReceived(eventSourceEvent, cancellationToken)));
             
-            await _streamStore.AppendToStream(CheckpointStreamId, _checkpointVersion!.Value,
-                new[]
-                {
-                    new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, subscription.LastPosition.ToString())
-                }, cancellationToken);
+            await _persistentSubscriptionManager.SaveCheckpoint(Convert.ToInt32(subscription.LastPosition), CheckpointStreamId, cancellationToken);
         }
 
         private void SubscriptionDropped(IAllStreamSubscription subscription, SubscriptionDroppedReason reason, Exception exception)

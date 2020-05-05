@@ -45,7 +45,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Projectio
             await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None);
             
             // Assert
-            _streamStoreMock.Verify(streamStore => streamStore.AppendToStream($"ce-{AggregateName}", It.IsAny<int>(), It.IsAny<NewStreamMessage[]>(),
+            _streamStoreMock.Verify(streamStore => streamStore.AppendToStream(
+                $"{Constants.CategoryPrefix}{AggregateName}", It.IsAny<int>(), It.IsAny<NewStreamMessage[]>(),
                 It.IsAny<CancellationToken>()), Times.Once);
         }
 

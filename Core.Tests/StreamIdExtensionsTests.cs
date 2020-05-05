@@ -11,7 +11,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         public void Should_Return_Checkpoint_StreamId()
         {
             // Arrange
-            StreamId streamId = $"ce-{Guid.NewGuid()}";
+            StreamId streamId = $"{Constants.CategoryPrefix}{Guid.NewGuid()}";
             
             // Act
             var result = streamId.GetCheckpointStreamId();
