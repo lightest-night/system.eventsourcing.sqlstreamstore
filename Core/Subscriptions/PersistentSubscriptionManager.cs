@@ -83,7 +83,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                     await _streamStore.AppendToStream(checkpointStreamId, checkpointExpectedVersion,
                         new[]
                         {
-                            new NewStreamMessage(Guid.NewGuid(), "checkpoint", subscription.LastVersion.ToString())
+                            new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, subscription.LastVersion.ToString())
                         }, token);
 
                     Subscriptions[subscriptionId] = (subscription, failures, checkpointExpectedVersion + 1);

@@ -5,6 +5,7 @@
         public const string SystemStreamPrefix = "@";
         public const string VersionKey = "version";
         public const string CheckpointPrefix = "checkpoint";
+        public const string CheckpointMessageType = "checkpoint";
         public static readonly string CategoryPrefix = $"{SystemStreamPrefix}ce-";
     }
 }
