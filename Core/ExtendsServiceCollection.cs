@@ -2,7 +2,9 @@
 using System.Reflection;
 using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Persistence;
+using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Projections;
+using LightestNight.System.EventSourcing.SqlStreamStore.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions;
 using LightestNight.System.EventSourcing.Subscriptions;
 using LightestNight.System.ServiceResolution;
@@ -35,6 +37,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             services.Configure(optionsAccessor);
             services.AddServiceResolution();
             services.TryAddSingleton<GetEventTypes>(() => EventCollection.GetEventTypes(eventAssemblies));
+            services.TryAddSingleton<IReplayManager, ReplayManager>();
             services.TryAddSingleton<IPersistentSubscriptionManager, PersistentSubscriptionManager>();
             services.TryAddSingleton<IEventPersistence, SqlEventStore>();
             return services.AddHostedService<EventSubscription>();
