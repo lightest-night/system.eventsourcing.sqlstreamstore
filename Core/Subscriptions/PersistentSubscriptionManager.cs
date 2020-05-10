@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
+using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.Subscriptions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,21 +17,27 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
 {
     public class PersistentSubscriptionManager : IPersistentSubscriptionManager
     {
+        private static long? _globalCheckpoint;
+        
         private readonly IStreamStore _streamStore;
-        private readonly ILogger<PersistentSubscriptionManager> _logger;
+        private readonly IReplayManager _replayManager;
         private readonly GetEventTypes _getEventTypes;
         private readonly EventSourcingOptions _options;
-
+        private readonly ILogger<PersistentSubscriptionManager> _logger;
+        
         private static readonly ConcurrentDictionary<Guid, (IStreamSubscription Subscription, int Failures, int CheckpointExpectedVersion)> Subscriptions
             = new ConcurrentDictionary<Guid, (IStreamSubscription Subscription, int Failures, int CheckpointExpectedVersion)>();
 
-        public PersistentSubscriptionManager(IStreamStore streamStore, ILogger<PersistentSubscriptionManager> logger, GetEventTypes getEventTypes, IHostApplicationLifetime applicationLifetime,
-            IOptions<EventSourcingOptions> options)
+        public long? GlobalCheckpoint => _globalCheckpoint;
+
+        public PersistentSubscriptionManager(IStreamStore streamStore, IReplayManager replayManager, GetEventTypes getEventTypes, IHostApplicationLifetime applicationLifetime,
+            IOptions<EventSourcingOptions> options, ILogger<PersistentSubscriptionManager> logger)
         {
             _streamStore = streamStore;
-            _logger = logger;
+            _replayManager = replayManager;
             _getEventTypes = getEventTypes;
             _options = options.Value;
+            _logger = logger;
 
             applicationLifetime.ApplicationStopping.Register(() =>
             {
@@ -46,6 +51,24 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
 
                 Subscriptions.Clear();
             });
+        }
+        
+        public async Task SaveGlobalCheckpoint(long? checkpoint, CancellationToken cancellationToken = default)
+        {
+            _globalCheckpoint = checkpoint;
+
+            if (checkpoint != default)
+            {
+                var checkpointStreamId = new StreamId(Constants.GlobalCheckpointId).GetCheckpointStreamId();
+                var metadata = await _streamStore.GetStreamMetadata(checkpointStreamId, cancellationToken);
+                if (metadata == null)
+                    await _streamStore.SetStreamMetadata(checkpointStreamId, maxCount: 1, cancellationToken: cancellationToken);
+
+                await _streamStore.AppendToStream(checkpointStreamId, ExpectedVersion.Any, new[]
+                {
+                    new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, checkpoint.ToString()),
+                }, cancellationToken);   
+            }
         }
 
         public async Task SaveCheckpoint(int checkpoint, [CallerMemberName] string? checkpointName = default, CancellationToken cancellationToken = default)
@@ -61,7 +84,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, checkpoint.ToString())
             }, cancellationToken);
         }
-
+        
         public async Task<Guid> CreateCategorySubscription(string categoryName, Func<object, CancellationToken, Task> eventReceived, CancellationToken cancellationToken = default)
         {
             categoryName = categoryName.GetCategoryStreamId();
@@ -77,7 +100,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             IStreamSubscription? categorySubscription = null;
             try
             {
-                var catchUpCheckpoint = await CatchSubscriptionUp(categoryName, checkpoint, eventReceived, cancellationToken);
+                var catchUpCheckpoint = await _replayManager.ReplayProjectionFrom(categoryName, checkpoint, eventReceived, cancellationToken);
                 if (catchUpCheckpoint != checkpoint)
                 {
                     var appendResult = await _streamStore.AppendToStream(checkpointStreamId, checkpointVersion,
@@ -165,28 +188,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             _logger.LogInformation($"{subscriptionName} subscription closed");
         }
 
-        public async Task<int> CatchSubscriptionUp(string streamName, int checkpoint, Func<object, CancellationToken, Task> eventReceived, CancellationToken cancellationToken = default)
-        {
-            var streamVersion = await _streamStore.GetLastVersionOfStream(streamName, cancellationToken);
-            if (streamVersion - checkpoint <= _options.SubscriptionCheckpointDelta) 
-                return checkpoint;
-            
-            var stopwatch = Stopwatch.StartNew();
-            var page = await _streamStore.ReadStreamForwards(streamName, checkpoint, _options.MaxReadStreamForward, cancellationToken: cancellationToken);
-            while (page.Messages.Any())
-            {
-                var events = await Task.WhenAll(page.Messages.Select(message => message.ToEvent(_getEventTypes(), cancellationToken)));
-                await Task.WhenAll(events.Select(@event => eventReceived(@event, cancellationToken)));
-
-                page = await page.ReadNext(cancellationToken);
-            }
-
-            stopwatch.Stop();
-            _logger.LogInformation($"{streamName} subscriber caught up in {stopwatch.ElapsedMilliseconds}ms.");
-
-            return page.LastStreamVersion;
-        }
-        
         private static string BuildSubscriptionName(Guid subscriptionId, string descriptor)
             => $"{subscriptionId}:{descriptor}";
 

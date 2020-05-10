@@ -6,6 +6,7 @@
         public const string VersionKey = "version";
         public const string CheckpointPrefix = "checkpoint";
         public const string CheckpointMessageType = "checkpoint";
+        public const string GlobalCheckpointId = "global-checkpoint";
         public static readonly string CategoryPrefix = $"{SystemStreamPrefix}ce-";
     }
 }

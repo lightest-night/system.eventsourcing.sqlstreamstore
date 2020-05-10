@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
+using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions;
 using LightestNight.System.EventSourcing.Subscriptions;
 using Microsoft.Extensions.Hosting;
@@ -24,6 +25,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
     public class PersistentSubscriptionManagerTests
     {
         private readonly Mock<IStreamStore> _streamStoreMock = new Mock<IStreamStore>();
+        private readonly Mock<IReplayManager> _replayManagerMock = new Mock<IReplayManager>();
         private readonly Mock<GetEventTypes> _getEventTypesMock = new Mock<GetEventTypes>();
         private readonly Mock<IHostApplicationLifetime> _applicationLifetimeMock = new Mock<IHostApplicationLifetime>();
         private readonly EventSourcingOptions _options = new EventSourcingOptions();
@@ -48,10 +50,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
             _getEventTypesMock.Setup(getEventTypes => getEventTypes()).Returns(new[] {typeof(TestEvent)});
 
             _sut = new PersistentSubscriptionManager(_streamStoreMock.Object,
-                Mock.Of<ILogger<PersistentSubscriptionManager>>(),
+                _replayManagerMock.Object,
                 _getEventTypesMock.Object,
                 _applicationLifetimeMock.Object,
-                Options.Create(_options));
+                Options.Create(_options),
+                Mock.Of<ILogger<PersistentSubscriptionManager>>());
         }
         
         public class CategorySubscriptionTests : PersistentSubscriptionManagerTests
@@ -94,12 +97,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                     CancellationToken.None);
 
                 // Assert
-                _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamForwards(
-                    It.Is<StreamId>(streamId => streamId.Value == _categoryName),
-                    0,
-                    _options.MaxReadStreamForward,
-                    It.IsAny<bool>(),
-                    It.IsAny<CancellationToken>()), Times.Once);
+                _replayManagerMock.Verify(replayManager => replayManager.ReplayProjectionFrom(
+                        _categoryName,
+                        0,
+                        It.IsAny<Func<object, CancellationToken, Task>>(),
+                        It.IsAny<CancellationToken>()),
+                    Times.Once);
             }
 
             [Fact]
@@ -126,9 +129,13 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                 // Arrange
                 SetupReadStreamBackwards(_categoryName, 100);
                 _getEventTypesMock.Setup(getEventTypes => getEventTypes()).Returns(new Type[0]);
+                _replayManagerMock.Setup(replayManager => replayManager.ReplayProjectionFrom(_categoryName,
+                        It.IsAny<int>(), It.IsAny<Func<object, CancellationToken, Task>>(),
+                        It.IsAny<CancellationToken>()))
+                    .Throws(new Exception());
                 
                 // Act
-                await Should.ThrowAsync<InvalidOperationException>(() => _sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask, CancellationToken.None));
+                await Should.ThrowAsync<Exception>(_sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask, CancellationToken.None));
                 
                 // Assert
                 var checkpointStreamId = new StreamId(_categoryName).GetCheckpointStreamId();
@@ -137,74 +144,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                     It.IsAny<int>(),
                     It.IsAny<CancellationToken>()),
                     Times.Once);
-            }
-        }
-
-        public class CatchUpTests : PersistentSubscriptionManagerTests
-        {
-            private const string StreamName = "CatchUpTest";
-            
-            public CatchUpTests()
-            {
-                SetupReadStreamBackwards(StreamName);
-                SetupReadStreamForwards(StreamName);
-            }
-            
-            [Fact]
-            public async Task Should_Get_Last_Version_When_Catching_Up()
-            {
-                // Act
-                await _sut.CatchSubscriptionUp(StreamName, 0, (o, token) => Task.CompletedTask, CancellationToken.None);
-                
-                // Assert
-                _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamBackwards(
-                        It.Is<StreamId>(streamId => streamId.Value == StreamName),
-                        StreamVersion.End,
-                        It.IsAny<int>(),
-                        It.IsAny<bool>(),
-                        It.IsAny<CancellationToken>()),
-                    Times.Once);
-            }
-
-            [Fact]
-            public async Task Should_Read_The_Stream_From_Checkpoint()
-            {
-                // Arrange
-                const int checkpoint = 10;
-                SetupReadStreamBackwards(StreamName, 100);
-                
-                // Act
-                await _sut.CatchSubscriptionUp(StreamName, checkpoint, (o, token) => Task.CompletedTask, CancellationToken.None);
-                
-                // Assert
-                _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamForwards(
-                    It.Is<StreamId>(streamId => streamId.Value == StreamName),
-                    checkpoint,
-                    It.IsAny<int>(),
-                    It.IsAny<bool>(),
-                    It.IsAny<CancellationToken>()),
-                    Times.Once);
-            }
-
-            [Fact]
-            public async Task Should_Fire_EventReceived_Function_When_Event_Found()
-            {
-                // Arrange
-                const int checkpoint = 10;
-                SetupReadStreamBackwards(StreamName, 100);
-
-                var fired = false;
-                Task EventReceived(object o, CancellationToken token)
-                {
-                    fired = true;
-                    return Task.CompletedTask;
-                }
-
-                // Act
-                await _sut.CatchSubscriptionUp(StreamName, checkpoint, EventReceived, CancellationToken.None);
-                
-                // Assert
-                fired.ShouldBeTrue();
             }
         }
 
@@ -313,6 +252,40 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                         It.Is<NewStreamMessage[]>(messages =>
                             messages.Any(message => message.JsonData == Checkpoint.ToString())),
                         It.IsAny<CancellationToken>()), Times.Once);
+            }
+
+            [Fact]
+            public async Task Should_Save_Global_Checkpoint()
+            {
+                // Arrange
+                var checkpointStreamId = new StreamId(Constants.GlobalCheckpointId).GetCheckpointStreamId();
+                SetupReadStreamBackwards(checkpointStreamId);
+                
+                // Act
+                await _sut.SaveGlobalCheckpoint(Checkpoint);
+                
+                // Assert
+                _streamStoreMock.Verify(
+                    streamStore => streamStore.AppendToStream(
+                        It.Is<StreamId>(streamId => streamId.Value == checkpointStreamId),
+                        It.IsAny<int>(),
+                        It.Is<NewStreamMessage[]>(messages =>
+                            messages.Any(message => message.JsonData == Checkpoint.ToString())),
+                        It.IsAny<CancellationToken>()), Times.Once);
+            }
+
+            [Fact]
+            public async Task Should_Get_Global_Checkpoint()
+            {
+                // Arrange
+                SetupReadStreamBackwards(new StreamId(Constants.GlobalCheckpointId).GetCheckpointStreamId());
+                await _sut.SaveGlobalCheckpoint(Checkpoint);
+                
+                // Act
+                var globalCheckpoint = _sut.GlobalCheckpoint;
+                
+                // Assert
+                globalCheckpoint.ShouldBe(Checkpoint);
             }
         }
 
