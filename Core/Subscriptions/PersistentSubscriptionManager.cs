@@ -38,7 +38,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             _getEventTypes = getEventTypes;
             _options = options.Value;
             _logger = logger;
-
+            
             applicationLifetime.ApplicationStopping.Register(() =>
             {
                 foreach (var subscriptionRecord in Subscriptions)
@@ -51,6 +51,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
 
                 Subscriptions.Clear();
             });
+
+            var getGlobalCheckpointTask = Task.Run(async () => await GetGlobalCheckpoint());
+            _globalCheckpoint = getGlobalCheckpointTask.Result;
         }
         
         public async Task SaveGlobalCheckpoint(long? checkpoint, CancellationToken cancellationToken = default)
@@ -69,6 +72,16 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                     new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, checkpoint.ToString()),
                 }, cancellationToken);   
             }
+        }
+
+        private async Task<long?> GetGlobalCheckpoint(CancellationToken cancellationToken = default)
+        {
+            var checkpointStreamId = new StreamId(Constants.GlobalCheckpointId).GetCheckpointStreamId();
+            var metadata = await _streamStore.GetLastVersionOfStream<long?>(checkpointStreamId, cancellationToken);
+            if (metadata.LastStreamVersion < 0)
+                return await metadata.GetDataFunc(cancellationToken);
+
+            return null;
         }
 
         public async Task SaveCheckpoint(int checkpoint, [CallerMemberName] string? checkpointName = default, CancellationToken cancellationToken = default)

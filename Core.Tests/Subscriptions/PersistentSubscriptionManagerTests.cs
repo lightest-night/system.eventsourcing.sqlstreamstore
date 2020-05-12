@@ -48,6 +48,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                     s, c, _streamStoreMock.Object, observableMock.Object, r, d, h, p, n));
 
             _getEventTypesMock.Setup(getEventTypes => getEventTypes()).Returns(new[] {typeof(TestEvent)});
+            
+            SetupReadStreamBackwards(new StreamId(Constants.GlobalCheckpointId).GetCheckpointStreamId());
 
             _sut = new PersistentSubscriptionManager(_streamStoreMock.Object,
                 _replayManagerMock.Object,
