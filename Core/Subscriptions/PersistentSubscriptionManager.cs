@@ -79,9 +79,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             var checkpointStreamId = new StreamId(Constants.GlobalCheckpointId).GetCheckpointStreamId();
             var metadata = await _streamStore.GetLastVersionOfStream<long?>(checkpointStreamId, cancellationToken);
             if (metadata.LastStreamVersion < 0)
-                return await metadata.GetDataFunc(cancellationToken);
+                return null;
 
-            return null;
+            return await metadata.GetDataFunc(cancellationToken);
         }
 
         public async Task SaveCheckpoint(int checkpoint, [CallerMemberName] string? checkpointName = default, CancellationToken cancellationToken = default)
