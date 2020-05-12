@@ -40,7 +40,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
             public async Task Should_Get_Last_Version_When_Replaying()
             {
                 // Act
-                await _sut.ReplayProjectionFrom(StreamId, 0, (o, token) => Task.CompletedTask, CancellationToken.None);
+                await _sut.ReplayProjectionFrom(StreamId, 0, (o, position, version, token) => Task.CompletedTask, CancellationToken.None);
 
                 // Assert
                 _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamBackwards(
@@ -60,7 +60,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                 SetupReadStreamBackwards(StreamId, 100);
 
                 // Act
-                await _sut.ReplayProjectionFrom(StreamId, checkpoint, (o, token) => Task.CompletedTask,
+                await _sut.ReplayProjectionFrom(StreamId, checkpoint, (o, position, version, token) => Task.CompletedTask,
                     CancellationToken.None);
 
                 // Assert
@@ -82,7 +82,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
 
                 var fired = false;
 
-                Task EventReceived(object o, CancellationToken token)
+                Task EventReceived(object @event, long? position, int? version, CancellationToken token)
                 {
                     fired = true;
                     return Task.CompletedTask;
@@ -106,7 +106,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                 SetupReadAllForwards();
 
                 // Act
-                await _sut.ReplayProjectionFrom(checkpoint, (o, token) => Task.CompletedTask,
+                await _sut.ReplayProjectionFrom(checkpoint, (o, position, version, token) => Task.CompletedTask,
                     cancellationToken: CancellationToken.None);
 
                 // Assert
@@ -126,7 +126,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                 const long checkpoint = 10;
                 var fired = false;
 
-                Task EventReceived(object o, CancellationToken token)
+                Task EventReceived(object @event, long? position, int? version, CancellationToken token)
                 {
                     fired = true;
                     return Task.CompletedTask;

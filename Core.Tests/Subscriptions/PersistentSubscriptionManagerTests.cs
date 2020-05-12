@@ -74,7 +74,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
             public async Task Should_Get_Last_Checkpoint_Version_When_Creating_New_Category_Subscription()
             {
                 // Act
-                await _sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask,
+                await _sut.CreateCategorySubscription(_categoryName, (o, position, version, token) => Task.CompletedTask,
                     CancellationToken.None);
 
                 // Assert
@@ -95,14 +95,14 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                 SetupReadStreamBackwards(_categoryName, _options.SubscriptionCheckpointDelta * 2);
                 
                 // Act
-                await _sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask,
+                await _sut.CreateCategorySubscription(_categoryName, (o, position, version, token) => Task.CompletedTask,
                     CancellationToken.None);
 
                 // Assert
                 _replayManagerMock.Verify(replayManager => replayManager.ReplayProjectionFrom(
                         _categoryName,
                         0,
-                        It.IsAny<Func<object, CancellationToken, Task>>(),
+                        It.IsAny<EventReceived>(),
                         It.IsAny<CancellationToken>()),
                     Times.Once);
             }
@@ -111,7 +111,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
             public async Task Should_Subscribe_To_Category_Stream_When_Creating_New_Category_Subscription()
             {
                 // Act
-                var subscriptionId = await _sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask, CancellationToken.None);
+                var subscriptionId = await _sut.CreateCategorySubscription(_categoryName, (o, position, version, token) => Task.CompletedTask, CancellationToken.None);
                 
                 // Assert
                 _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.SubscribeToStream(
@@ -132,12 +132,13 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
                 SetupReadStreamBackwards(_categoryName, 100);
                 _getEventTypesMock.Setup(getEventTypes => getEventTypes()).Returns(new Type[0]);
                 _replayManagerMock.Setup(replayManager => replayManager.ReplayProjectionFrom(_categoryName,
-                        It.IsAny<int>(), It.IsAny<Func<object, CancellationToken, Task>>(),
+                        It.IsAny<int>(), It.IsAny<EventReceived>(),
                         It.IsAny<CancellationToken>()))
                     .Throws(new Exception());
                 
                 // Act
-                await Should.ThrowAsync<Exception>(_sut.CreateCategorySubscription(_categoryName, (o, token) => Task.CompletedTask, CancellationToken.None));
+                await Should.ThrowAsync<Exception>(_sut.CreateCategorySubscription(_categoryName,
+                    (o, position, version, token) => Task.CompletedTask, CancellationToken.None));
                 
                 // Assert
                 var checkpointStreamId = new StreamId(_categoryName).GetCheckpointStreamId();
@@ -171,7 +172,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
             public async Task Should_Delete_Subscription_Checkpoint_Stream()
             {
                 // Arrange
-                var subscriptionId = await _sut.CreateCategorySubscription(_streamName, (o, token) => Task.CompletedTask, CancellationToken.None);
+                var subscriptionId = await _sut.CreateCategorySubscription(_streamName,
+                    (o, position, version, token) => Task.CompletedTask, CancellationToken.None);
                 
                 // Act
                 await _sut.CloseSubscription(subscriptionId, CancellationToken.None);

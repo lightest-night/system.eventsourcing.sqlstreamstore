@@ -98,7 +98,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             }, cancellationToken);
         }
         
-        public async Task<Guid> CreateCategorySubscription(string categoryName, Func<object, CancellationToken, Task> eventReceived, CancellationToken cancellationToken = default)
+        public async Task<Guid> CreateCategorySubscription(string categoryName, EventReceived eventReceived, CancellationToken cancellationToken = default)
         {
             categoryName = categoryName.GetCategoryStreamId();
             
@@ -128,7 +128,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 {
                     _logger.LogInformation($"Processing event {message.Type} from subscription {subscription.Name}.");
                     var @event = await message.ToEvent(_getEventTypes(), token);
-                    await eventReceived(@event, token);
+                    await eventReceived(@event, message.Position, message.StreamVersion, token);
 
                     var (_, failures, checkpointExpectedVersion) = Subscriptions[subscriptionId];
                     await _streamStore.AppendToStream(checkpointStreamId, checkpointExpectedVersion,

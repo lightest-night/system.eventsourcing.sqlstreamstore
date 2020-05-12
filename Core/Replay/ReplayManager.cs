@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -28,7 +27,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             _options = options.Value;
         }
 
-        public async Task<long> ReplayProjectionFrom(long? fromCheckpoint, Func<object, CancellationToken, Task> eventReceived, [CallerMemberName]string? projectionName = default,
+        public async Task<long> ReplayProjectionFrom(long? fromCheckpoint, EventReceived eventReceived, [CallerMemberName]string? projectionName = default,
             CancellationToken cancellationToken = default)
         {
             var stopwatch = Stopwatch.StartNew();
@@ -38,7 +37,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
                 foreach (var message in page.Messages)
                 {
                     var @event = message.ToEvent(_getEventTypes(), cancellationToken);
-                    await eventReceived(@event, cancellationToken);
+                    await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken);
                 }
 
                 page = await page.ReadNext(cancellationToken);
@@ -50,7 +49,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             return page.NextPosition;
         }
 
-        public async Task<int> ReplayProjectionFrom(string streamId, int fromCheckpoint, Func<object, CancellationToken, Task> eventReceived, CancellationToken cancellationToken = default)
+        public async Task<int> ReplayProjectionFrom(string streamId, int fromCheckpoint, EventReceived eventReceived, CancellationToken cancellationToken = default)
         {
             var streamVersion = await _streamStore.GetLastVersionOfStream(streamId, cancellationToken);
             if (streamVersion - fromCheckpoint <= _options.SubscriptionCheckpointDelta) 
@@ -63,7 +62,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
                 foreach (var message in page.Messages)
                 {
                     var @event = message.ToEvent(_getEventTypes(), cancellationToken);
-                    await eventReceived(@event, cancellationToken);
+                    await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken);
                 }
 
                 page = await page.ReadNext(cancellationToken);
