@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
@@ -8,6 +9,7 @@ using LightestNight.System.EventSourcing.Replay;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SqlStreamStore;
+using SqlStreamStore.Streams;
 
 namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
 {
@@ -26,6 +28,28 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             _options = options.Value;
         }
 
+        public async Task<long> ReplayProjectionFrom(long? fromCheckpoint, Func<object, CancellationToken, Task> eventReceived, [CallerMemberName]string? projectionName = default,
+            CancellationToken cancellationToken = default)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            var page = await _streamStore.ReadAllForwards(fromCheckpoint ?? Position.Start, _options.MaxReadStreamForward, cancellationToken);
+            while (page.Messages.Any())
+            {
+                foreach (var message in page.Messages)
+                {
+                    var @event = message.ToEvent(_getEventTypes(), cancellationToken);
+                    await eventReceived(@event, cancellationToken);
+                }
+
+                page = await page.ReadNext(cancellationToken);
+            }
+
+            stopwatch.Stop();
+            _logger.LogInformation($"{projectionName} replayed in {stopwatch.ElapsedMilliseconds}ms.");
+
+            return page.NextPosition;
+        }
+
         public async Task<int> ReplayProjectionFrom(string streamId, int fromCheckpoint, Func<object, CancellationToken, Task> eventReceived, CancellationToken cancellationToken = default)
         {
             var streamVersion = await _streamStore.GetLastVersionOfStream(streamId, cancellationToken);
@@ -36,8 +60,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             var page = await _streamStore.ReadStreamForwards(streamId, fromCheckpoint, _options.MaxReadStreamForward, cancellationToken: cancellationToken);
             while (page.Messages.Any())
             {
-                var events = await Task.WhenAll(page.Messages.Select(message => message.ToEvent(_getEventTypes(), cancellationToken)));
-                await Task.WhenAll(events.Select(@event => eventReceived(@event, cancellationToken)));
+                foreach (var message in page.Messages)
+                {
+                    var @event = message.ToEvent(_getEventTypes(), cancellationToken);
+                    await eventReceived(@event, cancellationToken);
+                }
 
                 page = await page.ReadNext(cancellationToken);
             }
