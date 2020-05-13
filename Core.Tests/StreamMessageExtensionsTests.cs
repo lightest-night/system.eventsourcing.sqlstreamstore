@@ -15,17 +15,20 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 
         public StreamMessageExtensionsTests()
         {
-            _streamMessage = new StreamMessage(
-                Guid.NewGuid().ToString(),
+            _streamMessage = BuildMessage();
+        }
+
+        private static StreamMessage BuildMessage(string? streamId = default)
+            => new StreamMessage(
+                string.IsNullOrEmpty(streamId) ? Guid.NewGuid().ToString() : streamId,
                 Guid.NewGuid(),
                 1,
                 1,
                 DateTime.UtcNow,
                 nameof(TestEvent),
-                JsonSerializer.Serialize(new Dictionary<string, object>{{Constants.VersionKey, 0}, {"FindMe", true}}),
+                JsonSerializer.Serialize(new Dictionary<string, object> {{Constants.VersionKey, 0}, {"FindMe", true}}),
                 (token => Task.FromResult(JsonSerializer.Serialize(new TestEvent {Id = Guid.NewGuid()})))
             );
-        }
 
         [Theory]
         [InlineData(Constants.VersionKey, 0, true)]
@@ -53,6 +56,23 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
             
             // Assert
             result.ShouldBeAssignableTo<IEventSourceEvent>();
+        }
+
+        [Theory]
+        [InlineData("TestStream", false)]
+        [InlineData(Constants.SystemStreamPrefix + "TestStream", true)]
+        [InlineData("Test" + Constants.SystemStreamPrefix + "Stream", false)]
+        [InlineData("TestStream" + Constants.SystemStreamPrefix, false)]
+        public void Should_Successfully_Determine_If_Message_Is_In_System_Stream(string streamId, bool expected)
+        {
+            // Arrange
+            var streamMessage = BuildMessage(streamId);
+            
+            // Act
+            var result = streamMessage.IsInSystemStream();
+            
+            // Assert
+            result.ShouldBe(expected);
         }
     }
 }

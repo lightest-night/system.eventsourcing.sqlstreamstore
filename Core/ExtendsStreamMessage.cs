@@ -38,5 +38,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
 
             return metaResult;
         }
+
+        public static bool IsInSystemStream(this StreamMessage message)
+            => message.StreamId.StartsWith(Constants.SystemStreamPrefix);
     }
 }

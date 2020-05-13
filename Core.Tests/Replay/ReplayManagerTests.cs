@@ -94,6 +94,22 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                 // Assert
                 fired.ShouldBeTrue();
             }
+
+            [Fact]
+            public async Task Should_Be_Correct_Event()
+            {
+                // Arrange
+                SetupReadStreamBackwards(StreamId, 100);
+                static Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+                {
+                    // Assert
+                    @event.ShouldBeOfType<TestEvent>();
+                    return Task.CompletedTask;
+                }
+                
+                // Act
+                await _sut.ReplayProjectionFrom(StreamId, StreamVersion.Start, EventReceived, CancellationToken.None);
+            }
         }
         
         public class GlobalReplayTests : ReplayManagerTests
@@ -137,6 +153,22 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
 
                 // Assert
                 fired.ShouldBeTrue();
+            }
+            
+            [Fact]
+            public async Task Should_Be_Correct_Event()
+            {
+                // Arrange
+                SetupReadAllForwards();
+                static Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+                {
+                    // Assert
+                    @event.ShouldBeOfType<TestEvent>();
+                    return Task.CompletedTask;
+                }
+                
+                // Act
+                await _sut.ReplayProjectionFrom(null, EventReceived, cancellationToken: CancellationToken.None);
             }
         }
         

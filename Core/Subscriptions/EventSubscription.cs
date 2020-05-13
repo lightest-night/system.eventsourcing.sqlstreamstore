@@ -90,7 +90,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
         
         private async Task StreamMessageReceived(IAllStreamSubscription subscription, StreamMessage message, CancellationToken cancellationToken)
         {
-            if (message.StreamId.StartsWith(Constants.SystemStreamPrefix))
+            if (message.IsInSystemStream())
             {
                 _logger.LogInformation($"Event {message.Type} is in a System stream therefore not being sent to observers.");
                 return;

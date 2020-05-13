@@ -31,16 +31,22 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             CancellationToken cancellationToken = default)
         {
             var stopwatch = Stopwatch.StartNew();
-            var page = await _streamStore.ReadAllForwards(fromCheckpoint ?? Position.Start, _options.MaxReadStreamForward, cancellationToken);
+            var page = await _streamStore.ReadAllForwards(fromCheckpoint ?? Position.Start, _options.MaxReadStreamForward, cancellationToken).ConfigureAwait(false);
             while (page.Messages.Any())
             {
                 foreach (var message in page.Messages)
                 {
-                    var @event = message.ToEvent(_getEventTypes(), cancellationToken);
-                    await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken);
+                    if (message.IsInSystemStream())
+                    {
+                        _logger.LogInformation($"Event {message.Type} is in a System stream therefore being skipped during replay.");
+                        continue;
+                    }
+                    
+                    var @event = await message.ToEvent(_getEventTypes(), cancellationToken).ConfigureAwait(false);
+                    await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken).ConfigureAwait(false);
                 }
 
-                page = await page.ReadNext(cancellationToken);
+                page = await page.ReadNext(cancellationToken).ConfigureAwait(false);
             }
 
             stopwatch.Stop();
@@ -51,21 +57,22 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
 
         public async Task<int> ReplayProjectionFrom(string streamId, int fromCheckpoint, EventReceived eventReceived, CancellationToken cancellationToken = default)
         {
-            var streamVersion = await _streamStore.GetLastVersionOfStream(streamId, cancellationToken);
+            var streamVersion = await _streamStore.GetLastVersionOfStream(streamId, cancellationToken).ConfigureAwait(false);
             if (streamVersion - fromCheckpoint <= _options.SubscriptionCheckpointDelta) 
                 return fromCheckpoint;
             
             var stopwatch = Stopwatch.StartNew();
-            var page = await _streamStore.ReadStreamForwards(streamId, fromCheckpoint, _options.MaxReadStreamForward, cancellationToken: cancellationToken);
+            var page = await _streamStore.ReadStreamForwards(streamId, fromCheckpoint, _options.MaxReadStreamForward,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
             while (page.Messages.Any())
             {
                 foreach (var message in page.Messages)
                 {
-                    var @event = message.ToEvent(_getEventTypes(), cancellationToken);
-                    await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken);
+                    var @event = await message.ToEvent(_getEventTypes(), cancellationToken).ConfigureAwait(false);
+                    await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken).ConfigureAwait(false);
                 }
 
-                page = await page.ReadNext(cancellationToken);
+                page = await page.ReadNext(cancellationToken).ConfigureAwait(false);
             }
 
             stopwatch.Stop();
