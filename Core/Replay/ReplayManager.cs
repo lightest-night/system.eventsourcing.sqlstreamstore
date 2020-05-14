@@ -31,7 +31,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             CancellationToken cancellationToken = default)
         {
             var stopwatch = Stopwatch.StartNew();
-            var page = await _streamStore.ReadAllForwards(fromCheckpoint ?? Position.Start, _options.MaxReadStreamForward, cancellationToken).ConfigureAwait(false);
+            var page = await _streamStore.ReadAllForwards(fromCheckpoint ?? Position.Start, _options.MaxReadStreamForward, false, cancellationToken).ConfigureAwait(false);
             while (page.Messages.Any())
             {
                 foreach (var message in page.Messages)
