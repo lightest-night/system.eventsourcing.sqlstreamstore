@@ -18,13 +18,13 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
 {
     public abstract class ReplayManagerTestsFixture
     {
-        public const string StreamId = "ReplayTests";
-        
-        public Mock<IStreamStore> StreamStoreMock { get; private set; }
-        public Mock<GetEventTypes> GetEventTypesMock { get; private set; }
-        public EventSourcingOptions EventSourcingOptions { get; private set; }
+        protected const string StreamId = "ReplayTests";
 
-        public IReplayManager Sut { get; private set; }
+        protected Mock<IStreamStore> StreamStoreMock { get; }
+        private Mock<GetEventTypes> GetEventTypesMock { get; }
+        private EventSourcingOptions EventSourcingOptions { get; }
+
+        protected IReplayManager Sut { get; }
 
         protected ReplayManagerTestsFixture()
         {
@@ -57,8 +57,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                     ReadDirection.Backward,
                     true));
         }
-        
-        protected void SetupReadStreamForwards(string streamId)
+
+        private void SetupReadStreamForwards(string streamId)
         {
             StreamStoreMock.As<IReadonlyStreamStore>()
                 .Setup(

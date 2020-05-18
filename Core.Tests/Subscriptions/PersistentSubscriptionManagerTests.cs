@@ -10,7 +10,6 @@ using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions;
 using LightestNight.System.EventSourcing.Subscriptions;
-using LightestNight.System.Utilities.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -27,12 +26,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
 {
     public abstract class PersistentSubscriptionManagerTestsFixture
     {
-        public Mock<IStreamStore> StreamStoreMock { get; }
-        public Mock<IReplayManager> ReplayManagerMock { get; }
-        public Mock<GetEventTypes> GetEventTypesMock { get; }
+        protected Mock<IStreamStore> StreamStoreMock { get; }
+        protected Mock<IReplayManager> ReplayManagerMock { get; }
+        protected Mock<GetEventTypes> GetEventTypesMock { get; }
         private Mock<IHostApplicationLifetime> ApplicationLifetimeMock { get; }
-        public EventSourcingOptions EventSourcingOptions { get; }
-        public IPersistentSubscriptionManager Sut { get; }
+        protected EventSourcingOptions EventSourcingOptions { get; }
+        protected IPersistentSubscriptionManager Sut { get; }
 
         [SuppressMessage("ReSharper", "CA2000")]
         protected PersistentSubscriptionManagerTestsFixture()
