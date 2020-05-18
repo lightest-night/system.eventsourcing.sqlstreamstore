@@ -18,7 +18,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         /// <returns>The last version in the stream</returns>
         public static async Task<int> GetLastVersionOfStream(this IStreamStore streamStore, string streamId, CancellationToken cancellationToken = default)
         {
-            var streamResult = await GetLastVersionOfStream<object?>(streamStore, streamId, cancellationToken);
+            var streamResult = await GetLastVersionOfStream<object?>(streamStore, streamId, cancellationToken)
+                .ConfigureAwait(false);
             return streamResult.LastStreamVersion;
         }
         
@@ -33,7 +34,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         public static async Task<(int LastStreamVersion, Func<CancellationToken, Task<T>> GetDataFunc)> GetLastVersionOfStream<T>(this IStreamStore streamStore, string streamId,
             CancellationToken cancellationToken = default)
         {
-            var streamResult = await streamStore.ReadStreamBackwards(streamId, StreamVersion.End, 1, cancellationToken: cancellationToken);
+            var streamResult = await streamStore.ThrowIfNull().ReadStreamBackwards(streamId, StreamVersion.End, 1, cancellationToken: cancellationToken).ConfigureAwait(false);
             return (streamResult.LastStreamVersion, token => streamResult.Messages.IsNullOrEmpty()
                 ? Task.FromResult(default(T)!)
                 : streamResult.Messages[0].GetJsonDataAs<T>(token));

@@ -37,27 +37,27 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
         
         [Fact]
-        public async Task Should_Correctly_Ascertain_Expected_Version_When_A_New_Stream()
+        public async Task ShouldCorrectlyAscertainExpectedVersionWhenANewStream()
         {
             // Act
-            var result = await _streamStoreMock.Object.GetLastVersionOfStream(StreamName, CancellationToken.None);
+            var result = await _streamStoreMock.Object.GetLastVersionOfStream(StreamName, CancellationToken.None).ConfigureAwait(false);
             
             // Assert
             result.ShouldBe(ExpectedVersion.NoStream);
         }
 
         [Fact]
-        public async Task Should_Correctly_Return_No_Object_For_GetDataFunc()
+        public async Task ShouldCorrectlyReturnNoObjectForGetDataFunc()
         {
             // Act
-            var result = await _streamStoreMock.Object.GetLastVersionOfStream<object?>(StreamName, CancellationToken.None);
+            var result = await _streamStoreMock.Object.GetLastVersionOfStream<object?>(StreamName, CancellationToken.None).ConfigureAwait(false);
             
             // Assert
-            (await result.GetDataFunc(CancellationToken.None)).ShouldBe(default);
+            (await result.GetDataFunc(CancellationToken.None).ConfigureAwait(false)).ShouldBe(default);
         }
         
         [Fact]
-        public async Task Should_Correctly_Ascertain_Expected_Version_When_An_Existing_Stream()
+        public async Task ShouldCorrectlyAscertainExpectedVersionWhenAnExistingStream()
         {
             // Arrange
             var currentVersion = new Random().Next(0, 1000);
@@ -75,14 +75,14 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
                     true));
             
             // Act
-            var result = await _streamStoreMock.Object.GetLastVersionOfStream(StreamName, CancellationToken.None);
+            var result = await _streamStoreMock.Object.GetLastVersionOfStream(StreamName, CancellationToken.None).ConfigureAwait(false);
             
             // Assert
             result.ShouldBe(currentVersion);
         }
 
         [Fact]
-        public async Task Should_Correctly_Return_Message_Contents_For_GetDataFunc_When_Existing_Stream()
+        public async Task ShouldCorrectlyReturnMessageContentsForGetDataFuncWhenExistingStream()
         {
             // Arrange
             const int expectedResult = 1;
@@ -106,10 +106,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
                     }));
             
             // Act
-            var result = await _streamStoreMock.Object.GetLastVersionOfStream<int>(StreamName, CancellationToken.None);
+            var result = await _streamStoreMock.Object.GetLastVersionOfStream<int>(StreamName, CancellationToken.None).ConfigureAwait(false);
             
             // Assert
-            (await result.GetDataFunc(CancellationToken.None)).ShouldBe(expectedResult);
+            (await result.GetDataFunc(CancellationToken.None).ConfigureAwait(false)).ShouldBe(expectedResult);
         }
     }
 }

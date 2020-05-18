@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.Subscriptions;
+using LightestNight.System.Utilities.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -36,10 +38,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             _streamStore = streamStore;
             _replayManager = replayManager;
             _getEventTypes = getEventTypes;
-            _options = options.Value;
+            _options = options.ThrowIfNull(nameof(options)).Value;
             _logger = logger;
             
-            applicationLifetime.ApplicationStopping.Register(() =>
+            applicationLifetime.ThrowIfNull(nameof(applicationLifetime)).ApplicationStopping.Register(() =>
             {
                 foreach (var subscriptionRecord in Subscriptions)
                 {
@@ -52,7 +54,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 Subscriptions.Clear();
             });
 
-            var getGlobalCheckpointTask = Task.Run(async () => await GetGlobalCheckpoint());
+            var getGlobalCheckpointTask = Task.Run(async () => await GetGlobalCheckpoint().ConfigureAwait(false));
             _globalCheckpoint = getGlobalCheckpointTask.Result;
         }
         
@@ -63,39 +65,39 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             if (checkpoint != default)
             {
                 var checkpointStreamId = new StreamId(Constants.GlobalCheckpointId).GetCheckpointStreamId();
-                var metadata = await _streamStore.GetStreamMetadata(checkpointStreamId, cancellationToken);
+                var metadata = await _streamStore.GetStreamMetadata(checkpointStreamId, cancellationToken).ConfigureAwait(false);
                 if (metadata == null)
-                    await _streamStore.SetStreamMetadata(checkpointStreamId, maxCount: 1, cancellationToken: cancellationToken);
+                    await _streamStore.SetStreamMetadata(checkpointStreamId, maxCount: 1, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 await _streamStore.AppendToStream(checkpointStreamId, ExpectedVersion.Any, new[]
                 {
                     new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, checkpoint.ToString()),
-                }, cancellationToken);   
+                }, cancellationToken).ConfigureAwait(false);   
             }
         }
 
         private async Task<long?> GetGlobalCheckpoint(CancellationToken cancellationToken = default)
         {
             var checkpointStreamId = new StreamId(Constants.GlobalCheckpointId).GetCheckpointStreamId();
-            var metadata = await _streamStore.GetLastVersionOfStream<long?>(checkpointStreamId, cancellationToken);
+            var metadata = await _streamStore.GetLastVersionOfStream<long?>(checkpointStreamId, cancellationToken).ConfigureAwait(false);
             if (metadata.LastStreamVersion < 0)
                 return null;
 
-            return await metadata.GetDataFunc(cancellationToken);
+            return await metadata.GetDataFunc(cancellationToken).ConfigureAwait(false);
         }
 
         public async Task SaveCheckpoint(int checkpoint, [CallerMemberName] string? checkpointName = default, CancellationToken cancellationToken = default)
         {
             var checkpointStreamId = new StreamId(checkpointName).GetCheckpointStreamId();
-            var metadata = await _streamStore.GetStreamMetadata(checkpointStreamId, cancellationToken);
+            var metadata = await _streamStore.GetStreamMetadata(checkpointStreamId, cancellationToken).ConfigureAwait(false);
             if (metadata == null)
-                await _streamStore.SetStreamMetadata(checkpointStreamId, maxCount: 1, cancellationToken: cancellationToken);
+                await _streamStore.SetStreamMetadata(checkpointStreamId, maxCount: 1, cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            var lastVersion = await _streamStore.GetLastVersionOfStream(checkpointStreamId, cancellationToken);
+            var lastVersion = await _streamStore.GetLastVersionOfStream(checkpointStreamId, cancellationToken).ConfigureAwait(false);
             await _streamStore.AppendToStream(checkpointStreamId, lastVersion + 1, new[]
             {
-                new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, checkpoint.ToString())
-            }, cancellationToken);
+                new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, checkpoint.ToString(CultureInfo.InvariantCulture))
+            }, cancellationToken).ConfigureAwait(false);
         }
         
         public async Task<Guid> CreateCategorySubscription(string categoryName, EventReceived eventReceived, CancellationToken cancellationToken = default)
@@ -104,21 +106,21 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             
             var subscriptionId = Guid.NewGuid();
             var checkpointStreamId = new StreamId(categoryName).GetCheckpointStreamId();
-            var checkpointStreamData = await _streamStore.GetLastVersionOfStream<int>(checkpointStreamId, cancellationToken);
+            var checkpointStreamData = await _streamStore.GetLastVersionOfStream<int>(checkpointStreamId, cancellationToken).ConfigureAwait(false);
             var checkpointVersion = checkpointStreamData.LastStreamVersion;
             var checkpoint = checkpointVersion < 0
                 ? StreamVersion.Start
-                : await checkpointStreamData.GetDataFunc(cancellationToken);
+                : await checkpointStreamData.GetDataFunc(cancellationToken).ConfigureAwait(false);
 
             IStreamSubscription? categorySubscription = null;
             try
             {
-                var catchUpCheckpoint = await _replayManager.ReplayProjectionFrom(categoryName, checkpoint, eventReceived, cancellationToken);
+                var catchUpCheckpoint = await _replayManager.ReplayProjectionFrom(categoryName, checkpoint, eventReceived, cancellationToken).ConfigureAwait(false);
                 if (catchUpCheckpoint != checkpoint)
                 {
                     var appendResult = await _streamStore.AppendToStream(checkpointStreamId, checkpointVersion,
-                        new[] {new NewStreamMessage(Guid.NewGuid(), "checkpoint", catchUpCheckpoint.ToString())},
-                        cancellationToken);
+                        new[] {new NewStreamMessage(Guid.NewGuid(), "checkpoint", catchUpCheckpoint.ToString(CultureInfo.InvariantCulture))},
+                        cancellationToken).ConfigureAwait(false);
                     
                     checkpointVersion = appendResult.CurrentVersion;
                     checkpoint = catchUpCheckpoint;
@@ -127,15 +129,15 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 async Task StreamMessageReceived(IStreamSubscription subscription, StreamMessage message, CancellationToken token)
                 {
                     _logger.LogInformation($"Processing event {message.Type} from subscription {subscription.Name}.");
-                    var @event = await message.ToEvent(_getEventTypes(), token);
-                    await eventReceived(@event, message.Position, message.StreamVersion, token);
+                    var @event = await message.ToEvent(_getEventTypes(), token).ConfigureAwait(false);
+                    await eventReceived(@event, message.Position, message.StreamVersion, token).ConfigureAwait(false);
 
                     var (_, failures, checkpointExpectedVersion) = Subscriptions[subscriptionId];
                     await _streamStore.AppendToStream(checkpointStreamId, checkpointExpectedVersion,
                         new[]
                         {
                             new NewStreamMessage(Guid.NewGuid(), Constants.CheckpointMessageType, subscription.LastVersion.ToString())
-                        }, token);
+                        }, token).ConfigureAwait(false);
 
                     Subscriptions[subscriptionId] = (subscription, failures, checkpointExpectedVersion + 1);
                 }
@@ -179,7 +181,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             catch
             {
                 if (checkpointVersion == ExpectedVersion.NoStream)
-                    await _streamStore.DeleteStream(checkpointStreamId, cancellationToken: cancellationToken);
+                    await _streamStore.DeleteStream(checkpointStreamId, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 categorySubscription?.Dispose();
 
@@ -195,7 +197,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             var subscription = subscriptionData.Subscription;
             var subscriptionName = subscription.Name;
             var subscriptionDescriptor = DeriveSubscriptionDescriptor(subscriptionName);
-            await _streamStore.DeleteStream(new StreamId(subscriptionDescriptor).GetCheckpointStreamId(), cancellationToken: cancellationToken);
+            await _streamStore.DeleteStream(new StreamId(subscriptionDescriptor).GetCheckpointStreamId(), cancellationToken: cancellationToken).ConfigureAwait(false);
             subscription.Dispose();
             
             _logger.LogInformation($"{subscriptionName} subscription closed");

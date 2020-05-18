@@ -4,6 +4,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
 {
     public class TestDisposable : IDisposable
     {
-        public void Dispose(){}
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        
+        protected virtual void Dispose(bool disposing){}
     }
 }

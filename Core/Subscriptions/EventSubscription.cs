@@ -53,17 +53,20 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                         return;
                     
                     if (observer.IsActive)
-                        await SetSubscription(stoppingToken);
+                        await SetSubscription(stoppingToken).ConfigureAwait(false);
                 };
             }
             
             _logger.LogInformation($"There are {_eventObservers.Count()} observers registered.");
-            await SetSubscription(stoppingToken);
+            await SetSubscription(stoppingToken).ConfigureAwait(false);
         }
         
         public override void Dispose()
         {
             _subscription?.Dispose();
+            GC.SuppressFinalize(this);
+
+            base.Dispose();
         }
 
         private async Task SetSubscription(CancellationToken cancellationToken = default)
@@ -76,13 +79,13 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 return;
             }
 
-            var checkpointData = await _streamStore.GetLastVersionOfStream<long>(CheckpointStreamId, cancellationToken);
+            var checkpointData = await _streamStore.GetLastVersionOfStream<long>(CheckpointStreamId, cancellationToken).ConfigureAwait(false);
             _checkpointVersion = checkpointData.LastStreamVersion;
             var checkpoint = _checkpointVersion < 0
                 ? (long?) null
-                : await checkpointData.GetDataFunc(cancellationToken);
+                : await checkpointData.GetDataFunc(cancellationToken).ConfigureAwait(false);
 
-            await _persistentSubscriptionManager.SaveGlobalCheckpoint(checkpoint, cancellationToken);
+            await _persistentSubscriptionManager.SaveGlobalCheckpoint(checkpoint, cancellationToken).ConfigureAwait(false);
 
             _subscription = _streamStore.SubscribeToAll(checkpoint, StreamMessageReceived, SubscriptionDropped);
             _logger.LogInformation($"The {Constants.GlobalCheckpointId} subscription has been created.");
@@ -97,10 +100,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             }
             
             _logger.LogInformation($"Event {message.Type} received, sending to observers.");
-            var eventSourceEvent = await message.ToEvent(_getEventTypes(), cancellationToken);
-            await Task.WhenAll(_eventObservers.Select(observer => observer.EventReceived(eventSourceEvent, message.Position, message.StreamVersion, cancellationToken)));
+            var eventSourceEvent = await message.ToEvent(_getEventTypes(), cancellationToken).ConfigureAwait(false);
+            await Task.WhenAll(_eventObservers.Select(observer => observer.EventReceived(eventSourceEvent, message.Position, message.StreamVersion, cancellationToken))).ConfigureAwait(false);
             
-            await _persistentSubscriptionManager.SaveGlobalCheckpoint(subscription.LastPosition, cancellationToken);
+            await _persistentSubscriptionManager.SaveGlobalCheckpoint(subscription.LastPosition, cancellationToken).ConfigureAwait(false);
         }
 
         private void SubscriptionDropped(IAllStreamSubscription subscription, SubscriptionDroppedReason reason, Exception exception)

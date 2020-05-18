@@ -16,165 +16,33 @@ using Xunit;
 
 namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
 {
-    public class ReplayManagerTests
+    public abstract class ReplayManagerTestsFixture
     {
-        private const string StreamId = "ReplayTests";
-        private readonly Mock<IStreamStore> _streamStoreMock = new Mock<IStreamStore>();
-        private readonly Mock<GetEventTypes> _getEventTypesMock = new Mock<GetEventTypes>();
-        private readonly EventSourcingOptions _options = new EventSourcingOptions();
+        public const string StreamId = "ReplayTests";
         
-        private readonly IReplayManager _sut;
+        public Mock<IStreamStore> StreamStoreMock { get; private set; }
+        public Mock<GetEventTypes> GetEventTypesMock { get; private set; }
+        public EventSourcingOptions EventSourcingOptions { get; private set; }
 
-        protected ReplayManagerTests()
+        public IReplayManager Sut { get; private set; }
+
+        protected ReplayManagerTestsFixture()
         {
+            StreamStoreMock = new Mock<IStreamStore>();
+            GetEventTypesMock = new Mock<GetEventTypes>();
+            EventSourcingOptions = new EventSourcingOptions();
+            
             SetupReadStreamBackwards(StreamId);
             SetupReadStreamForwards(StreamId);
             
-            _getEventTypesMock.Setup(getEventTypes => getEventTypes()).Returns(new[] {typeof(TestEvent)});
-            _sut = new ReplayManager(_streamStoreMock.Object, Options.Create(_options), _getEventTypesMock.Object, Mock.Of<ILogger<ReplayManager>>());
+            GetEventTypesMock.Setup(getEventTypes => getEventTypes()).Returns(new[] {typeof(TestEvent)});
+            Sut = new ReplayManager(StreamStoreMock.Object, Options.Create(EventSourcingOptions),
+                GetEventTypesMock.Object, Mock.Of<ILogger<ReplayManager>>());
         }
 
-        public class StreamReplayTests : ReplayManagerTests
+        protected void SetupReadStreamBackwards(string streamId, int lastStreamVersion = ExpectedVersion.NoStream)
         {
-            [Fact]
-            public async Task Should_Get_Last_Version_When_Replaying()
-            {
-                // Act
-                await _sut.ReplayProjectionFrom(StreamId, 0, (o, position, version, token) => Task.CompletedTask, CancellationToken.None);
-
-                // Assert
-                _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamBackwards(
-                        It.Is<StreamId>(streamId => streamId.Value == StreamId),
-                        StreamVersion.End,
-                        It.IsAny<int>(),
-                        It.IsAny<bool>(),
-                        It.IsAny<CancellationToken>()),
-                    Times.Once);
-            }
-
-            [Fact]
-            public async Task Should_Read_The_Stream_From_Checkpoint()
-            {
-                // Arrange
-                const int checkpoint = 10;
-                SetupReadStreamBackwards(StreamId, 100);
-
-                // Act
-                await _sut.ReplayProjectionFrom(StreamId, checkpoint, (o, position, version, token) => Task.CompletedTask,
-                    CancellationToken.None);
-
-                // Assert
-                _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamForwards(
-                        It.Is<StreamId>(streamId => streamId.Value == StreamId),
-                        checkpoint,
-                        It.IsAny<int>(),
-                        It.IsAny<bool>(),
-                        It.IsAny<CancellationToken>()),
-                    Times.Once);
-            }
-
-            [Fact]
-            public async Task Should_Fire_EventReceived_Function_When_Event_Found()
-            {
-                // Arrange
-                const int checkpoint = 10;
-                SetupReadStreamBackwards(StreamId, 100);
-
-                var fired = false;
-
-                Task EventReceived(object @event, long? position, int? version, CancellationToken token)
-                {
-                    fired = true;
-                    return Task.CompletedTask;
-                }
-
-                // Act
-                await _sut.ReplayProjectionFrom(StreamId, checkpoint, EventReceived, CancellationToken.None);
-
-                // Assert
-                fired.ShouldBeTrue();
-            }
-
-            [Fact]
-            public async Task Should_Be_Correct_Event()
-            {
-                // Arrange
-                SetupReadStreamBackwards(StreamId, 100);
-                static Task EventReceived(object @event, long? position, int? version, CancellationToken token)
-                {
-                    // Assert
-                    @event.ShouldBeOfType<TestEvent>();
-                    return Task.CompletedTask;
-                }
-                
-                // Act
-                await _sut.ReplayProjectionFrom(StreamId, StreamVersion.Start, EventReceived, CancellationToken.None);
-            }
-        }
-        
-        public class GlobalReplayTests : ReplayManagerTests
-        {
-            [Fact]
-            public async Task Should_Read_The_Stream_From_Checkpoint()
-            {
-                // Arrange
-                const long checkpoint = 10;
-                SetupReadAllForwards();
-
-                // Act
-                await _sut.ReplayProjectionFrom(checkpoint, (o, position, version, token) => Task.CompletedTask,
-                    cancellationToken: CancellationToken.None);
-
-                // Assert
-                _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadAllForwards(
-                    checkpoint,
-                    It.IsAny<int>(),
-                    It.IsAny<bool>(),
-                    CancellationToken.None),
-                    Times.Once);
-            }
-
-            [Fact]
-            public async Task Should_Fire_EventReceived_Function_When_Event_Found()
-            {
-                // Arrange
-                SetupReadAllForwards();
-                const long checkpoint = 10;
-                var fired = false;
-
-                Task EventReceived(object @event, long? position, int? version, CancellationToken token)
-                {
-                    fired = true;
-                    return Task.CompletedTask;
-                }
-
-                // Act
-                await _sut.ReplayProjectionFrom(checkpoint, EventReceived, cancellationToken: CancellationToken.None);
-
-                // Assert
-                fired.ShouldBeTrue();
-            }
-            
-            [Fact]
-            public async Task Should_Be_Correct_Event()
-            {
-                // Arrange
-                SetupReadAllForwards();
-                static Task EventReceived(object @event, long? position, int? version, CancellationToken token)
-                {
-                    // Assert
-                    @event.ShouldBeOfType<TestEvent>();
-                    return Task.CompletedTask;
-                }
-                
-                // Act
-                await _sut.ReplayProjectionFrom(null, EventReceived, cancellationToken: CancellationToken.None);
-            }
-        }
-        
-        private void SetupReadStreamBackwards(string streamId, int lastStreamVersion = ExpectedVersion.NoStream)
-        {
-            _streamStoreMock.As<IReadonlyStreamStore>()
+            StreamStoreMock.As<IReadonlyStreamStore>()
                 .Setup(
                     streamStore => streamStore.ReadStreamBackwards(streamId, StreamVersion.End, 1, true,
                         It.IsAny<CancellationToken>())
@@ -190,9 +58,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                     true));
         }
         
-        private void SetupReadStreamForwards(string streamId)
+        protected void SetupReadStreamForwards(string streamId)
         {
-            _streamStoreMock.As<IReadonlyStreamStore>()
+            StreamStoreMock.As<IReadonlyStreamStore>()
                 .Setup(
                     streamStore => streamStore.ReadStreamForwards(streamId, It.IsAny<int>(), It.IsAny<int>(),
                         It.IsAny<bool>(),
@@ -218,9 +86,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                 ));
         }
 
-        private void SetupReadAllForwards()
+        protected void SetupReadAllForwards()
         {
-            _streamStoreMock.As<IReadonlyStreamStore>().Setup(streamStore =>
+            StreamStoreMock.As<IReadonlyStreamStore>().Setup(streamStore =>
                     streamStore.ReadAllForwards(It.IsAny<long>(), It.IsAny<int>(), It.IsAny<bool>(),
                         It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new ReadAllPage(
@@ -237,6 +105,147 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                             JsonSerializer.Serialize(new TestEvent {Id = Guid.NewGuid()}))
                     }
                 ));
+        }
+    }
+
+    public class StreamReplayTests : ReplayManagerTestsFixture
+    {
+        [Fact]
+        public async Task ShouldGetLastVersionWhenReplaying()
+        {
+            // Act
+            await Sut.ReplayProjectionFrom(ReplayManagerTestsFixture.StreamId, 0, (o, position, version, token) => Task.CompletedTask,
+                CancellationToken.None).ConfigureAwait(false);
+
+            // Assert
+            StreamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamBackwards(
+                    It.Is<StreamId>(streamId => streamId.Value == ReplayManagerTestsFixture.StreamId),
+                    StreamVersion.End,
+                    It.IsAny<int>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldReadTheStreamFromCheckpoint()
+        {
+            // Arrange
+            const int checkpoint = 10;
+            SetupReadStreamBackwards(StreamId, 100);
+
+            // Act
+            await Sut.ReplayProjectionFrom(StreamId, checkpoint, (o, position, version, token) => Task.CompletedTask,
+                CancellationToken.None).ConfigureAwait(false);
+
+            // Assert
+            StreamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamForwards(
+                    It.Is<StreamId>(streamId => streamId.Value == StreamId),
+                    checkpoint,
+                    It.IsAny<int>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldFireEventReceivedFunctionWhenEventFound()
+        {
+            // Arrange
+            const int checkpoint = 10;
+            SetupReadStreamBackwards(StreamId, 100);
+
+            var fired = false;
+
+            Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+            {
+                fired = true;
+                return Task.CompletedTask;
+            }
+
+            // Act
+            await Sut.ReplayProjectionFrom(StreamId, checkpoint, EventReceived, CancellationToken.None).ConfigureAwait(false);
+
+            // Assert
+            fired.ShouldBeTrue();
+        }
+
+        [Fact]
+        public async Task ShouldBeCorrectEvent()
+        {
+            // Arrange
+            SetupReadStreamBackwards(StreamId, 100);
+
+            static Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+            {
+                // Assert
+                @event.ShouldBeOfType<TestEvent>();
+                return Task.CompletedTask;
+            }
+
+            // Act
+            await Sut.ReplayProjectionFrom(StreamId, StreamVersion.Start, EventReceived, CancellationToken.None).ConfigureAwait(false);
+        }
+    }
+
+    public class GlobalReplayTests : ReplayManagerTestsFixture
+    {
+        [Fact]
+        public async Task ShouldReadTheStreamFromCheckpoint()
+        {
+            // Arrange
+            const long checkpoint = 10;
+            SetupReadAllForwards();
+
+            // Act
+            await Sut.ReplayProjectionFrom(checkpoint, (o, position, version, token) => Task.CompletedTask,
+                cancellationToken: CancellationToken.None).ConfigureAwait(false);
+
+            // Assert
+            StreamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadAllForwards(
+                    checkpoint,
+                    It.IsAny<int>(),
+                    It.IsAny<bool>(),
+                    CancellationToken.None),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldFireEventReceivedFunctionWhenEventFound()
+        {
+            // Arrange
+            SetupReadAllForwards();
+            const long checkpoint = 10;
+            var fired = false;
+
+            Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+            {
+                fired = true;
+                return Task.CompletedTask;
+            }
+
+            // Act
+            await Sut.ReplayProjectionFrom(checkpoint, EventReceived, cancellationToken: CancellationToken.None).ConfigureAwait(false);
+
+            // Assert
+            fired.ShouldBeTrue();
+        }
+
+        [Fact]
+        public async Task ShouldBeCorrectEvent()
+        {
+            // Arrange
+            SetupReadAllForwards();
+
+            static Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+            {
+                // Assert
+                @event.ShouldBeOfType<TestEvent>();
+                return Task.CompletedTask;
+            }
+
+            // Act
+            await Sut.ReplayProjectionFrom(null, EventReceived, cancellationToken: CancellationToken.None).ConfigureAwait(false);
         }
     }
 }

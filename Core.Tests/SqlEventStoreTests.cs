@@ -29,7 +29,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
 
         [Fact]
-        public async Task Should_Get_Aggregate_From_EventStream()
+        public async Task ShouldGetAggregateFromEventStream()
         {
             // Arrange
             var aggregateId = Guid.NewGuid();
@@ -37,20 +37,20 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
             SetupReadStreamForwards(nameof(TestAggregate), events);
 
             // Act
-            var aggregate = await _sut.GetById<TestAggregate>(aggregateId);
+            var aggregate = await _sut.GetById<TestAggregate>(aggregateId).ConfigureAwait(false);
             
             // Assert
             aggregate.Id.ShouldBe(aggregateId);
         }
 
         [Fact]
-        public async Task Should_Operate_NoOp_When_Saving_If_No_Events_Present()
+        public async Task ShouldOperateNoOpWhenSavingIfNoEventsPresent()
         {
             // Arrange
             var aggregate = new TestAggregate(Enumerable.Empty<IEventSourceEvent>());
             
             // Act
-            await _sut.Save(aggregate);
+            await _sut.Save(aggregate).ConfigureAwait(false);
             
             // Assert
             _streamStoreMock.Verify(streamStoreMock => streamStoreMock.AppendToStream(
@@ -59,17 +59,17 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
 
         [Fact]
-        public async Task Should_Add_New_Aggregate()
+        public async Task ShouldAddNewAggregate()
         {
             // Arrange
             var aggregate = new TestAggregate();
             
             // Act
-            await _sut.Save(aggregate);
+            await _sut.Save(aggregate).ConfigureAwait(false);
             
             // Assert
             _streamStoreMock.Verify(streamStoreMock => streamStoreMock.AppendToStream(
-                It.Is<StreamId>(streamId => streamId.Value.Contains(aggregate.Id.ToString())),
+                It.Is<StreamId>(streamId => streamId.Value.Contains(aggregate.Id.ToString(), StringComparison.InvariantCultureIgnoreCase)),
                 ExpectedVersion.NoStream,
                 It.Is<NewStreamMessage[]>(messages => messages.Any(message => message.Type == nameof(TestEvent))),
                 It.IsAny<CancellationToken>()),
@@ -77,19 +77,19 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
 
         [Fact]
-        public async Task Should_Add_New_Event_To_Existing_Aggregate()
+        public async Task ShouldAddNewEventToExistingAggregate()
         {
             // Arrange
             var aggregate = new TestAggregate();
-            await _sut.Save(aggregate);
+            await _sut.Save(aggregate).ConfigureAwait(false);
             
             // Act
             aggregate.SecondaryEvent();
-            await _sut.Save(aggregate);
+            await _sut.Save(aggregate).ConfigureAwait(false);
             
             // Assert
             _streamStoreMock.Verify(streamStoreMock => streamStoreMock.AppendToStream(
-                    It.Is<StreamId>(streamId => streamId.Value.Contains(aggregate.Id.ToString())),
+                    It.Is<StreamId>(streamId => streamId.Value.Contains(aggregate.Id.ToString(), StringComparison.InvariantCultureIgnoreCase)),
                     It.Is<int>(version => version != ExpectedVersion.NoStream),
                     It.Is<NewStreamMessage[]>(messages => messages.Any(message => message.Type == nameof(TestEvent))),
                     It.IsAny<CancellationToken>()),
@@ -97,7 +97,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
 
         [Fact]
-        public async Task Should_Fire_Any_Projections_Registered()
+        public async Task ShouldFireAnyProjectionsRegistered()
         {
             // Arrange
             var aggregate = new TestAggregate();
@@ -107,7 +107,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
                 .Callback(() => projectionFired = true);
             
             // Act
-            await _sut.Save(aggregate);
+            await _sut.Save(aggregate).ConfigureAwait(false);
             
             // Assert
             projectionFired.ShouldBeTrue();
@@ -117,7 +117,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         {
             _streamStoreMock.As<IReadonlyStreamStore>()
                 .Setup(
-                    streamStore => streamStore.ReadStreamForwards(It.Is<StreamId>(sId => sId.Value.Contains(streamId)), It.IsAny<int>(), It.IsAny<int>(),
+                    streamStore => streamStore.ReadStreamForwards(It.Is<StreamId>(sId => sId.Value.Contains(streamId, StringComparison.InvariantCultureIgnoreCase)), It.IsAny<int>(), It.IsAny<int>(),
                         It.IsAny<bool>(),
                         It.IsAny<CancellationToken>())
                 )

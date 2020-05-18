@@ -34,7 +34,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         [InlineData(Constants.VersionKey, 0, true)]
         [InlineData("Test", null, false)]
         [InlineData("FindMe", true, true)]
-        public void Should_Get_Metadata_From_Message_Successfully(string key, object result, bool found)
+        public void ShouldGetMetadataFromMessageSuccessfully(string key, object result, bool found)
         {
             // Act
             var lookupResult = _streamMessage.TryGetEventMetadata(key, out var value);
@@ -46,13 +46,13 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
         
         [Fact]
-        public async Task Should_Successfully_Map_To_An_IEventSourcingEvent_Object()
+        public async Task ShouldSuccessfullyMapToAnIEventSourcingEventObject()
         {
             // Arrange
             var types = new[] {typeof(TestEvent)};
             
             // Act
-            var result = await _streamMessage.ToEvent(types);
+            var result = await _streamMessage.ToEvent(types).ConfigureAwait(false);
             
             // Assert
             result.ShouldBeAssignableTo<IEventSourceEvent>();
@@ -63,7 +63,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         [InlineData(Constants.SystemStreamPrefix + "TestStream", true)]
         [InlineData("Test" + Constants.SystemStreamPrefix + "Stream", false)]
         [InlineData("TestStream" + Constants.SystemStreamPrefix, false)]
-        public void Should_Successfully_Determine_If_Message_Is_In_System_Stream(string streamId, bool expected)
+        public void ShouldSuccessfullyDetermineIfMessageIsInSystemStream(string streamId, bool expected)
         {
             // Arrange
             var streamMessage = BuildMessage(streamId);

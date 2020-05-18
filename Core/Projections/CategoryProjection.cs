@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using LightestNight.System.Utilities.Extensions;
 using SqlStreamStore;
 using SqlStreamStore.Streams;
 
@@ -23,10 +24,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Projections
             var categoryName = GetCategoryName(streamId);
             var expectedVersion = Checkpoints.ContainsKey(categoryName)
                 ? Checkpoints[categoryName]
-                : await _streamStore.GetLastVersionOfStream(categoryName, cancellationToken);
+                : await _streamStore.GetLastVersionOfStream(categoryName, cancellationToken).ConfigureAwait(false);
             
-            await _streamStore.AppendToStream(categoryName, expectedVersion, events, cancellationToken);
-            Checkpoints[categoryName] = expectedVersion + events.Length;
+            await _streamStore.AppendToStream(categoryName, expectedVersion, events, cancellationToken).ConfigureAwait(false);
+            Checkpoints[categoryName] = expectedVersion + events.ThrowIfNull(nameof(events)).Length;
         }
 
         public static void ClearInternalCache()

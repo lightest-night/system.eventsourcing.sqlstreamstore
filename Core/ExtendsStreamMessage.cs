@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,14 +16,14 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var typeName = message.Type;
             var version = 0;
             if (message.TryGetEventMetadata(Constants.VersionKey, out var metaVersion))
-                version = Convert.ToInt32(metaVersion);
+                version = Convert.ToInt32(metaVersion, CultureInfo.InvariantCulture);
             var eventType = eventTypes.GetEventType(typeName, version);
             
             if (eventType == default)
                 throw new InvalidOperationException($"No Event Type found to deserialize message: {typeName} at version {version}");
 
             var eventDataTask = message.GetJsonData(cancellationToken);
-            var @event = JsonSerializer.Deserialize(await eventDataTask, eventType);
+            var @event = JsonSerializer.Deserialize(await eventDataTask.ConfigureAwait(false), eventType);
             
             if (@event is IEventSourceEvent eventSourceEvent)
                 return eventSourceEvent;
@@ -40,6 +41,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         }
 
         public static bool IsInSystemStream(this StreamMessage message)
-            => message.StreamId.StartsWith(Constants.SystemStreamPrefix);
+            => message.StreamId.StartsWith(Constants.SystemStreamPrefix, StringComparison.InvariantCultureIgnoreCase);
     }
 }

@@ -7,7 +7,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
     public class ExtendsStringTests
     {
         [Fact]
-        public void Should_Get_Category_StreamId()
+        public void ShouldGetCategoryStreamId()
         {
             // Arrange
             var streamId = Guid.NewGuid().ToString();
@@ -17,6 +17,19 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
             
             // Assert
             result.ShouldBe($"{Constants.CategoryPrefix}{streamId}");
+        }
+
+        [Fact]
+        public void ShouldGetCategoryStreamIdEvenWhenPrefixAlreadySet()
+        {
+            // Arrange
+            var streamId = $"{Constants.CategoryPrefix}{Guid.NewGuid()}";
+            
+            // Act
+            var result = streamId.GetCategoryStreamId();
+            
+            // Assert
+            result.ShouldBe(streamId);
         }
     }
 }

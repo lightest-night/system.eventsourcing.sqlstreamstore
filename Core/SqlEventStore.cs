@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -10,13 +11,16 @@ using LightestNight.System.EventSourcing.Persistence;
 using LightestNight.System.EventSourcing.SqlStreamStore.Projections;
 using LightestNight.System.ServiceResolution;
 using LightestNight.System.Utilities;
+using LightestNight.System.Utilities.Extensions;
 using SqlStreamStore;
 using SqlStreamStore.Streams;
 
 namespace LightestNight.System.EventSourcing.SqlStreamStore
 {
-    public class SqlEventStore : IEventPersistence
+    public class SqlEventStore : IEventPersistence, IDisposable, IAsyncDisposable
     {
+        private bool _disposed;
+        
         private readonly IStreamStore _streamStore;
         private readonly ServiceFactory _serviceFactory;
         private readonly GetEventTypes _getEventTypes;
@@ -37,13 +41,13 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var events = new List<IEventSourceEvent>();
             var streamId = GenerateStreamId<T>(id);
 
-            var page = await _streamStore.ReadStreamForwards(streamId, StreamVersion.Start, 200, cancellationToken: cancellationToken);
+            var page = await _streamStore.ReadStreamForwards(streamId, StreamVersion.Start, 200, cancellationToken: cancellationToken).ConfigureAwait(false);
             while (page.Messages.Any())
             {
-                var resolvedEvents = await Task.WhenAll(page.Messages.Select(DeserializeMessage));
+                var resolvedEvents = await Task.WhenAll(page.Messages.Select(DeserializeMessage)).ConfigureAwait(false);
                 events.AddRange(resolvedEvents);
 
-                page = await page.ReadNext(cancellationToken);
+                page = await page.ReadNext(cancellationToken).ConfigureAwait(false);
             }
 
             var aggregate = _serviceFactory(typeof(T), events);
@@ -55,6 +59,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
 
         public async Task Save(IEventSourceAggregate aggregate, CancellationToken cancellationToken = default)
         {
+            aggregate = aggregate.ThrowIfNull(nameof(aggregate));
             var events = aggregate.GetUncommittedEvents().ToArray();
             if (!events.Any())
                 return;
@@ -69,11 +74,35 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var messagesToPersist = events.Select(evt => ToMessageData(evt)).ToArray();
             var tasks = new List<Task>{_streamStore.AppendToStream(streamId, expectedVersion, messagesToPersist, cancellationToken)};
             tasks.AddRange(_projections.Select(projection => projection.ProcessEvents(streamId, messagesToPersist, cancellationToken)));
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks).ConfigureAwait(false);
             _waitHandle.Set();
             
             // We get all the way through the process, then we clear the uncommitted events. They are now processed, they are no longer *un*committed
             aggregate.ClearUncommittedEvents();
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            Dispose();
+            return new ValueTask();
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (_disposed)
+                return;
+
+            if (disposing)
+                _streamStore.Dispose();
+
+            _waitHandle.Dispose();
+            _disposed = true;
         }
 
         private async Task<IEventSourceEvent> DeserializeMessage(StreamMessage message)
@@ -82,13 +111,13 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var typeName = message.Type;
             var version = 0;
             if (message.TryGetEventMetadata(Constants.VersionKey, out var versionMetaData))
-                version = Convert.ToInt32(versionMetaData);
+                version = Convert.ToInt32(versionMetaData, CultureInfo.InvariantCulture);
 
             var eventType = _getEventTypes().GetEventType(typeName, version);
             if (eventType == default)
                 throw new InvalidOperationException($"Event Type could not be determined using type: {typeName} and version: {version}");
 
-            var result = JsonSerializer.Deserialize(await messageJsonTask, eventType);
+            var result = JsonSerializer.Deserialize(await messageJsonTask.ConfigureAwait(false), eventType);
             return result as IEventSourceEvent ?? throw new InvalidOperationException($"Message could not be deserialized to an instance of {nameof(IEventSourceEvent)}.");
         }
 
@@ -119,5 +148,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         
         private static StreamId GenerateStreamId(string descriptor, Guid id)
             => new StreamId($"{descriptor}-{id}");
+
+        ~SqlEventStore()
+        {
+            Dispose(false);
+        }
     }
 }

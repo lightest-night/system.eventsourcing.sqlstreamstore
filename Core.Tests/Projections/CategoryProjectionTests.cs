@@ -39,10 +39,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Projectio
         }
 
         [Fact]
-        public async Task Should_Create_Stream_With_Correct_Category_Name()
+        public async Task ShouldCreateStreamWithCorrectCategoryName()
         {
             // Act
-            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None);
+            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None).ConfigureAwait(false);
             
             // Assert
             _streamStoreMock.Verify(streamStore => streamStore.AppendToStream(
@@ -51,10 +51,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Projectio
         }
 
         [Fact]
-        public async Task Should_Correctly_Ascertain_Expected_Version_When_A_New_Stream()
+        public async Task ShouldCorrectlyAscertainExpectedVersionWhenANewStream()
         {
             // Act
-            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None);
+            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None).ConfigureAwait(false);
             
             // Assert
             _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamBackwards(
@@ -69,7 +69,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Projectio
         }
 
         [Fact]
-        public async Task Should_Correctly_Ascertain_Expected_Version_When_An_Existing_Stream()
+        public async Task ShouldCorrectlyAscertainExpectedVersionWhenAnExistingStream()
         {
             // Arrange
             var currentVersion = new Random().Next(0, 100);
@@ -88,7 +88,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Projectio
                     true));
             
             // Act
-            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None);
+            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None).ConfigureAwait(false);
             
             // Assert
             _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamBackwards(
@@ -103,7 +103,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Projectio
         }
 
         [Fact]
-        public async Task Should_Utilise_Local_Caching_To_Resolve_Deadlocks_On_Versions()
+        public async Task ShouldUtiliseLocalCachingToResolveDeadlocksOnVersions()
         {
             // Arrange
             var currentVersion = new Random().Next(0, 100);
@@ -122,8 +122,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Projectio
                     true));
             
             // Act
-            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None);
-            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None);
+            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None).ConfigureAwait(false);
+            await _sut.ProcessEvents(_streamId, new[] {_streamMessage}, CancellationToken.None).ConfigureAwait(false);
             
             // Assert
             _streamStoreMock.As<IReadonlyStreamStore>().Verify(streamStore => streamStore.ReadStreamBackwards(

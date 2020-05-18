@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Replay;
+using LightestNight.System.Utilities.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SqlStreamStore;
@@ -24,7 +25,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             _streamStore = streamStore;
             _getEventTypes = getEventTypes;
             _logger = logger;
-            _options = options.Value;
+            _options = options.ThrowIfNull(nameof(options)).Value;
         }
 
         public async Task<long> ReplayProjectionFrom(long? fromCheckpoint, EventReceived eventReceived, [CallerMemberName]string? projectionName = default,

@@ -8,7 +8,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
     public class StreamIdExtensionsTests
     {
         [Fact]
-        public void Should_Return_Checkpoint_StreamId()
+        public void ShouldReturnCheckpointStreamId()
         {
             // Arrange
             StreamId streamId = $"{Constants.CategoryPrefix}{Guid.NewGuid()}";
@@ -21,7 +21,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
 
         [Fact]
-        public void Should_Add_The_Category_Prefix_When_Getting_A_Checkpoint_StreamId()
+        public void ShouldAddTheCategoryPrefixWhenGettingACheckpointStreamId()
         {
             // Arrange
             StreamId streamId = Guid.NewGuid().ToString();
@@ -34,7 +34,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
 
         [Fact]
-        public void Should_Get_Category_StreamId()
+        public void ShouldGetCategoryStreamId()
         {
             // Arrange
             StreamId streamId = Guid.NewGuid().ToString();
