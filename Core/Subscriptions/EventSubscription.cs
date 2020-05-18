@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using LightestNight.System.EventSourcing.Checkpoints;
 using LightestNight.System.EventSourcing.Events;
-using LightestNight.System.EventSourcing.Subscriptions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SqlStreamStore;
@@ -15,25 +15,22 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
 {
     public class EventSubscription : BackgroundService
     {
-        private static readonly StreamId CheckpointStreamId = new StreamId(Constants.GlobalCheckpointId).GetCheckpointStreamId();
         private static IAllStreamSubscription? _subscription;
-        private static int? _checkpointVersion;
         private static int _failureCount;
         
         private readonly ILogger<EventSubscription> _logger;
         private readonly IStreamStore _streamStore;
         private readonly IEnumerable<IEventObserver> _eventObservers;
         private readonly GetEventTypes _getEventTypes;
-        private readonly IPersistentSubscriptionManager _persistentSubscriptionManager;
-
-        public EventSubscription(ILogger<EventSubscription> logger, IStreamStore streamStore, IEnumerable<IEventObserver> eventObservers, GetEventTypes eventTypes,
-            IPersistentSubscriptionManager persistentSubscriptionManager)
+        private readonly ICheckpointManager _checkpointManager;
+        
+        public EventSubscription(ILogger<EventSubscription> logger, IStreamStore streamStore, IEnumerable<IEventObserver> eventObservers, GetEventTypes eventTypes, ICheckpointManager checkpointManager)
         {
             _logger = logger;
             _streamStore = streamStore;
             _eventObservers = eventObservers;
             _getEventTypes = eventTypes;
-            _persistentSubscriptionManager = persistentSubscriptionManager;
+            _checkpointManager = checkpointManager;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -79,14 +76,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 return;
             }
 
-            var checkpointData = await _streamStore.GetLastVersionOfStream<long>(CheckpointStreamId, cancellationToken).ConfigureAwait(false);
-            _checkpointVersion = checkpointData.LastStreamVersion;
-            var checkpoint = _checkpointVersion < 0
-                ? (long?) null
-                : await checkpointData.GetDataFunc(cancellationToken).ConfigureAwait(false);
-
-            await _persistentSubscriptionManager.SaveGlobalCheckpoint(checkpoint, cancellationToken).ConfigureAwait(false);
-
+            var checkpoint = await _checkpointManager.GetGlobalCheckpoint(cancellationToken).ConfigureAwait(false);
+            
             _subscription = _streamStore.SubscribeToAll(checkpoint, StreamMessageReceived, SubscriptionDropped);
             _logger.LogInformation($"The {Constants.GlobalCheckpointId} subscription has been created.");
         }
@@ -103,7 +94,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             var eventSourceEvent = await message.ToEvent(_getEventTypes(), cancellationToken).ConfigureAwait(false);
             await Task.WhenAll(_eventObservers.Select(observer => observer.EventReceived(eventSourceEvent, message.Position, message.StreamVersion, cancellationToken))).ConfigureAwait(false);
             
-            await _persistentSubscriptionManager.SaveGlobalCheckpoint(subscription.LastPosition, cancellationToken).ConfigureAwait(false);
+            await _checkpointManager
+                .SetCheckpoint(Constants.GlobalCheckpointId, subscription.LastPosition.GetValueOrDefault(), cancellationToken)
+                .ConfigureAwait(false);
         }
 
         private void SubscriptionDropped(IAllStreamSubscription subscription, SubscriptionDroppedReason reason, Exception exception)

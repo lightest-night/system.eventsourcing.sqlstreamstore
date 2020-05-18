@@ -36,7 +36,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="LightestNight.System.EventSourcing" Version="1.7.8" />
+      <PackageReference Include="LightestNight.System.EventSourcing" Version="1.8.1" />
       <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0" />
       <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.4" />
       <PackageReference Include="SqlStreamStore" Version="1.1.3" />
