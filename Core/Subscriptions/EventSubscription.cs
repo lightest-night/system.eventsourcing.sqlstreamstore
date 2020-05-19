@@ -110,7 +110,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             }
             else
             {
-                _logger.LogInformation($"Event Subscription Dropped. Reason: {reason}. Failure #{_failureCount}. Attempting to reconnect...");
+                _logger.LogError(exception, $"Event Subscription Dropped. Reason: {reason}. Failure #{_failureCount}. Attempting to reconnect...");
                 _subscription = _streamStore.SubscribeToAll(subscription.LastPosition, StreamMessageReceived, SubscriptionDropped);
             }
         }
