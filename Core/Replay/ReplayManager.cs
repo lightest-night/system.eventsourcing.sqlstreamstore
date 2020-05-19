@@ -53,7 +53,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             stopwatch.Stop();
             _logger.LogInformation($"{projectionName} replayed in {stopwatch.ElapsedMilliseconds}ms.");
 
-            return page.NextPosition;
+            return page.NextPosition - 1;
         }
 
         public async Task<int> ReplayProjectionFrom(string streamId, int fromCheckpoint, EventReceived eventReceived, CancellationToken cancellationToken = default)
