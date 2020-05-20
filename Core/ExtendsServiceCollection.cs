@@ -52,8 +52,14 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         /// <returns>The <see cref="IServiceCollection" /> populated with all the newly registered services</returns>
         public static IServiceCollection AddInMemoryEventStore(this IServiceCollection services,
             Action<EventSourcingOptions>? optionsAccessor = null, params Assembly[] eventAssemblies)
-            => services.AddEventStore(optionsAccessor, eventAssemblies)
-                .AddSingleton<IStreamStore, InMemoryStreamStore>()
-                .AddSingleton<ICheckpointManager, CheckpointManager>();
+        {
+            services.AddEventStore(optionsAccessor, eventAssemblies)
+                .AddSingleton<IStreamStore, InMemoryStreamStore>();
+
+            services.TryAddSingleton<GetGlobalCheckpoint>(_ => CheckpointManager.GetGlobalCheckpoint);
+            services.TryAddSingleton<SetGlobalCheckpoint>(_ => CheckpointManager.SetGlobalCheckpoint);
+
+            return services;
+        }
     }
 }

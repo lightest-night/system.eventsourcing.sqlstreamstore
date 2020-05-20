@@ -22,15 +22,18 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
         private readonly IStreamStore _streamStore;
         private readonly IEnumerable<IEventObserver> _eventObservers;
         private readonly GetEventTypes _getEventTypes;
-        private readonly ICheckpointManager _checkpointManager;
+        private readonly GetGlobalCheckpoint _getGlobalCheckpoint;
+        private readonly SetGlobalCheckpoint _setGlobalCheckpoint;
         
-        public EventSubscription(ILogger<EventSubscription> logger, IStreamStore streamStore, IEnumerable<IEventObserver> eventObservers, GetEventTypes eventTypes, ICheckpointManager checkpointManager)
+        public EventSubscription(ILogger<EventSubscription> logger, IStreamStore streamStore, IEnumerable<IEventObserver> eventObservers, GetEventTypes eventTypes, SetGlobalCheckpoint setGlobalCheckpoint,
+            GetGlobalCheckpoint getGlobalCheckpoint)
         {
             _logger = logger;
             _streamStore = streamStore;
             _eventObservers = eventObservers;
             _getEventTypes = eventTypes;
-            _checkpointManager = checkpointManager;
+            _setGlobalCheckpoint = setGlobalCheckpoint;
+            _getGlobalCheckpoint = getGlobalCheckpoint;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -76,7 +79,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
                 return;
             }
 
-            var checkpoint = await _checkpointManager.GetGlobalCheckpoint(cancellationToken).ConfigureAwait(false);
+            var checkpoint = await _getGlobalCheckpoint(cancellationToken).ConfigureAwait(false);
             
             _subscription = _streamStore.SubscribeToAll(checkpoint, StreamMessageReceived, SubscriptionDropped);
             _logger.LogInformation($"The {Constants.GlobalCheckpointId} subscription has been created.");
@@ -94,9 +97,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             var eventSourceEvent = await message.ToEvent(_getEventTypes(), cancellationToken).ConfigureAwait(false);
             await Task.WhenAll(_eventObservers.Select(observer => observer.EventReceived(eventSourceEvent, message.Position, message.StreamVersion, cancellationToken))).ConfigureAwait(false);
             
-            await _checkpointManager
-                .SetCheckpoint(Constants.GlobalCheckpointId, subscription.LastPosition.GetValueOrDefault(), cancellationToken)
-                .ConfigureAwait(false);
+            await _setGlobalCheckpoint(subscription.LastPosition, cancellationToken).ConfigureAwait(false);
         }
 
         private void SubscriptionDropped(IAllStreamSubscription subscription, SubscriptionDroppedReason reason, Exception exception)
