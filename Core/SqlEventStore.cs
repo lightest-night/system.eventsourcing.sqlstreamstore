@@ -123,6 +123,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
 
         private static NewStreamMessage ToMessageData<TEvent>(TEvent @event, IDictionary<string, object>? headers = null)
         {
+            var serializerOptions = new JsonSerializerOptions();
+            serializerOptions.Converters.Add(new DateTimeOffsetConverter());
+            serializerOptions.WriteIndented = true;
+            
             var eventClrType = @event?.GetType() ?? throw new ArgumentNullException(nameof(@event));
             var typeName = EventTypeAttribute.GetEventTypeFrom(eventClrType);
             if (typeName == default)
@@ -133,9 +137,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var version = Attributes.GetCustomAttributeValue<EventTypeAttribute, int>(eventClrType,
                 eventTypeAttribute => eventTypeAttribute.Version);
             headers.Add(Constants.VersionKey, version);
+            headers.TryAdd(Constants.TimestampKey, new DateTimeOffset(DateTime.UtcNow));
 
-            var data = JsonSerializer.Serialize(@event, eventClrType);
-            var metadata = JsonSerializer.Serialize(headers);
+            var data = JsonSerializer.Serialize(@event, eventClrType, serializerOptions);
+            var metadata = JsonSerializer.Serialize(headers, serializerOptions);
 
             return new NewStreamMessage(Guid.NewGuid(), typeName, data, metadata);
         }
