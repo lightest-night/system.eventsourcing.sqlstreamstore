@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Domain;
 using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Persistence;
-using LightestNight.System.EventSourcing.SqlStreamStore.Projections;
 using LightestNight.System.ServiceResolution;
 using LightestNight.System.Utilities;
 using LightestNight.System.Utilities.Extensions;
@@ -24,16 +23,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         private readonly IStreamStore _streamStore;
         private readonly ServiceFactory _serviceFactory;
         private readonly GetEventTypes _getEventTypes;
-        private readonly IEnumerable<IEventSourceProjection> _projections;
 
-        private readonly EventWaitHandle _waitHandle = new AutoResetEvent(true);
-
-        public SqlEventStore(IStreamStore streamStore, ServiceFactory serviceFactory, GetEventTypes getEventTypes, IEnumerable<IEventSourceProjection> projections)
+        public SqlEventStore(IStreamStore streamStore, ServiceFactory serviceFactory, GetEventTypes getEventTypes)
         {
             _streamStore = streamStore;
             _serviceFactory = serviceFactory;
             _getEventTypes = getEventTypes;
-            _projections = projections;
         }
 
         public async Task<T> GetById<T>(Guid id, CancellationToken cancellationToken = default) where T : class, IEventSourceAggregate
@@ -70,12 +65,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
                 ? ExpectedVersion.NoStream
                 : originalVersion - 1;
 
-            _waitHandle.WaitOne();
             var messagesToPersist = events.Select(evt => ToMessageData(evt)).ToArray();
-            var tasks = new List<Task>{_streamStore.AppendToStream(streamId, expectedVersion, messagesToPersist, cancellationToken)};
-            tasks.AddRange(_projections.Select(projection => projection.ProcessEvents(streamId, messagesToPersist, cancellationToken)));
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-            _waitHandle.Set();
+            await _streamStore.AppendToStream(streamId, expectedVersion, messagesToPersist, cancellationToken);
             
             // We get all the way through the process, then we clear the uncommitted events. They are now processed, they are no longer *un*committed
             aggregate.ClearUncommittedEvents();
@@ -101,7 +92,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             if (disposing)
                 _streamStore.Dispose();
 
-            _waitHandle.Dispose();
             _disposed = true;
         }
 

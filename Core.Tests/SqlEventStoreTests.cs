@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Persistence;
-using LightestNight.System.EventSourcing.SqlStreamStore.Projections;
 using Moq;
 using Shouldly;
 using SqlStreamStore;
@@ -19,13 +18,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
     {
         private readonly Mock<IStreamStore> _streamStoreMock = new Mock<IStreamStore>();
         private readonly Mock<GetEventTypes> _getEventTypesMock = new Mock<GetEventTypes>();
-        private readonly Mock<IEventSourceProjection> _projectionMock = new Mock<IEventSourceProjection>();
         private readonly IEventPersistence _sut;
 
         public SqlEventStoreTests()
         {
             _getEventTypesMock.Setup(getEventTypes => getEventTypes()).Returns(new[] {typeof(TestEvent)});
-            _sut = new SqlEventStore(_streamStoreMock.Object, Activator.CreateInstance, _getEventTypesMock.Object, new[]{_projectionMock.Object});
+            _sut = new SqlEventStore(_streamStoreMock.Object, Activator.CreateInstance, _getEventTypesMock.Object);
         }
 
         [Fact]
@@ -96,23 +94,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
                 Times.Once);
         }
 
-        [Fact]
-        public async Task ShouldFireAnyProjectionsRegistered()
-        {
-            // Arrange
-            var aggregate = new TestAggregate();
-            var projectionFired = false;
-            _projectionMock.Setup(projection => projection.ProcessEvents(It.IsAny<string>(),
-                    It.IsAny<NewStreamMessage[]>(), It.IsAny<CancellationToken>()))
-                .Callback(() => projectionFired = true);
-            
-            // Act
-            await _sut.Save(aggregate).ConfigureAwait(false);
-            
-            // Assert
-            projectionFired.ShouldBeTrue();
-        }
-        
         private void SetupReadStreamForwards(string streamId, IEnumerable<IEventSourceEvent> events)
         {
             _streamStoreMock.As<IReadonlyStreamStore>()

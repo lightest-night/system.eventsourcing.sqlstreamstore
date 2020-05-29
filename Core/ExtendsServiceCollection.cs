@@ -5,7 +5,6 @@ using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Persistence;
 using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Checkpoints;
-using LightestNight.System.EventSourcing.SqlStreamStore.Projections;
 using LightestNight.System.EventSourcing.SqlStreamStore.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions;
 using LightestNight.System.ServiceResolution;
@@ -26,15 +25,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         /// <returns>The <see cref="IServiceCollection" /> populated with all the newly registered services</returns>
         public static IServiceCollection AddEventStore(this IServiceCollection services, Action<EventSourcingOptions>? optionsAccessor = null, params Assembly[] eventAssemblies)
         {
-            AssemblyScanning.RegisterServices(services, new[]{Assembly.GetExecutingAssembly()}, new[]
-            {
-                new ConcreteRegistration
-                {
-                    InterfaceType = typeof(IEventSourceProjection),
-                    AddIfAlreadyExists = true
-                }
-            });
-
             services.Configure(optionsAccessor);
             services.AddServiceResolution();
             services.TryAddSingleton<GetEventTypes>(() => EventCollection.GetEventTypes(eventAssemblies));
