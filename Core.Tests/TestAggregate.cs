@@ -13,18 +13,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 
         public TestAggregate()
         {
-            Publish(new TestEvent
-            {
-                Id = Guid.NewGuid()
-            });
+            Publish(new TestEvent(Guid.NewGuid()));
         }
 
         public void SecondaryEvent()
         {
-            Publish(new TestEvent
-            {
-                Id = Guid.NewGuid()
-            });
+            Publish(new TestEvent(Guid.NewGuid()));
         }
         
         private void When(TestEvent e)

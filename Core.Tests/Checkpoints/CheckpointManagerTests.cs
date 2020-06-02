@@ -32,7 +32,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Checkpoin
             // Arrange
             const int checkpoint = 100;
             var checkpoints = typeof(CheckpointManager).GetField("Checkpoints", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) as IDictionary<string, long>;
-            checkpoints?.Add(Constants.GlobalCheckpointId, checkpoint);
+            checkpoints?.Add(EventSourcing.Constants.GlobalCheckpointId, checkpoint);
             
             // Act
             var result = await CheckpointManager.GetGlobalCheckpoint(CancellationToken.None).ConfigureAwait(false);

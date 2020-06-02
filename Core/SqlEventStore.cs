@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Domain;
 using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Persistence;
 using LightestNight.System.ServiceResolution;
-using LightestNight.System.Utilities;
 using LightestNight.System.Utilities.Extensions;
 using SqlStreamStore;
 using SqlStreamStore.Streams;
@@ -39,8 +36,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var page = await _streamStore.ReadStreamForwards(streamId, StreamVersion.Start, 200, cancellationToken: cancellationToken).ConfigureAwait(false);
             while (page.Messages.Any())
             {
-                var resolvedEvents = await Task.WhenAll(page.Messages.Select(DeserializeMessage)).ConfigureAwait(false);
-                events.AddRange(resolvedEvents);
+                foreach (var message in page.Messages)
+                    events.Add(await message.ToEvent(_getEventTypes(), cancellationToken).ConfigureAwait(false));
 
                 page = await page.ReadNext(cancellationToken).ConfigureAwait(false);
             }
@@ -64,8 +61,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var expectedVersion = originalVersion == 0
                 ? ExpectedVersion.NoStream
                 : originalVersion - 1;
-
-            var messagesToPersist = events.Select(evt => ToMessageData(evt)).ToArray();
+            
+            var messagesToPersist = events.Select(evt => evt.ToMessageData()).ToArray();
             await _streamStore.AppendToStream(streamId, expectedVersion, messagesToPersist, cancellationToken);
             
             // We get all the way through the process, then we clear the uncommitted events. They are now processed, they are no longer *un*committed
@@ -93,46 +90,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
                 _streamStore.Dispose();
 
             _disposed = true;
-        }
-
-        private async Task<IEventSourceEvent> DeserializeMessage(StreamMessage message)
-        {
-            var messageJsonTask = message.GetJsonData();
-            var typeName = message.Type;
-            var version = 0;
-            if (message.TryGetEventMetadata(Constants.VersionKey, out var versionMetaData))
-                version = Convert.ToInt32(versionMetaData, CultureInfo.InvariantCulture);
-
-            var eventType = _getEventTypes().GetEventType(typeName, version);
-            if (eventType == default)
-                throw new InvalidOperationException($"Event Type could not be determined using type: {typeName} and version: {version}");
-
-            var result = JsonSerializer.Deserialize(await messageJsonTask.ConfigureAwait(false), eventType);
-            return result as IEventSourceEvent ?? throw new InvalidOperationException($"Message could not be deserialized to an instance of {nameof(IEventSourceEvent)}.");
-        }
-
-        private static NewStreamMessage ToMessageData<TEvent>(TEvent @event, IDictionary<string, object>? headers = null)
-        {
-            var serializerOptions = new JsonSerializerOptions();
-            serializerOptions.Converters.Add(new DateTimeOffsetConverter());
-            serializerOptions.WriteIndented = true;
-            
-            var eventClrType = @event?.GetType() ?? throw new ArgumentNullException(nameof(@event));
-            var typeName = EventTypeAttribute.GetEventTypeFrom(eventClrType);
-            if (typeName == default)
-                throw new ArgumentException("Event Type Name could not be determined", nameof(@event));
-
-            headers ??= new Dictionary<string, object>();
-
-            var version = Attributes.GetCustomAttributeValue<EventTypeAttribute, int>(eventClrType,
-                eventTypeAttribute => eventTypeAttribute.Version);
-            headers.Add(Constants.VersionKey, version);
-            headers.TryAdd(Constants.TimestampKey, new DateTimeOffset(DateTime.UtcNow));
-
-            var data = JsonSerializer.Serialize(@event, eventClrType, serializerOptions);
-            var metadata = JsonSerializer.Serialize(headers, serializerOptions);
-
-            return new NewStreamMessage(Guid.NewGuid(), typeName, data, metadata);
         }
 
         private static StreamId GenerateAggregateStreamId(IEventSourceAggregate aggregate)

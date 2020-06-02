@@ -26,12 +26,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
                 1,
                 DateTime.UtcNow,
                 nameof(TestEvent),
-                JsonSerializer.Serialize(new Dictionary<string, object> {{Constants.VersionKey, 0}, {"FindMe", true}}),
-                (token => Task.FromResult(JsonSerializer.Serialize(new TestEvent {Id = Guid.NewGuid()})))
+                JsonSerializer.Serialize(new Dictionary<string, object> {{EventSourcing.Constants.VersionKey, 0}, {"FindMe", true}}),
+                (token => Task.FromResult(JsonSerializer.Serialize(new TestEvent(Guid.NewGuid()))))
             );
 
         [Theory]
-        [InlineData(Constants.VersionKey, 0, true)]
+        [InlineData(EventSourcing.Constants.VersionKey, 0, true)]
         [InlineData("Test", null, false)]
         [InlineData("FindMe", true, true)]
         public void ShouldGetMetadataFromMessageSuccessfully(string key, object result, bool found)
@@ -60,9 +60,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 
         [Theory]
         [InlineData("TestStream", false)]
-        [InlineData(Constants.SystemStreamPrefix + "TestStream", true)]
-        [InlineData("Test" + Constants.SystemStreamPrefix + "Stream", false)]
-        [InlineData("TestStream" + Constants.SystemStreamPrefix, false)]
+        [InlineData(EventSourcing.Constants.SystemStreamPrefix + "TestStream", true)]
+        [InlineData("Test" + EventSourcing.Constants.SystemStreamPrefix + "Stream", false)]
+        [InlineData("TestStream" + EventSourcing.Constants.SystemStreamPrefix, false)]
         public void ShouldSuccessfullyDetermineIfMessageIsInSystemStream(string streamId, bool expected)
         {
             // Arrange

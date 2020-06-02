@@ -1,11 +1,20 @@
 ﻿using System;
 using LightestNight.System.EventSourcing.Events;
+using Newtonsoft.Json;
 
 namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 {
-    [EventType(nameof(TestEvent))]
+    [EventType]
     public class TestEvent : IEventSourceEvent
     {
-        public Guid Id { get; set; }
+        public Guid Id { get; }
+        public string? Property { get; }
+
+        [JsonConstructor]
+        public TestEvent(Guid id, string? property = null)
+        {
+            Id = id;
+            Property = property;
+        }
     }
 }
