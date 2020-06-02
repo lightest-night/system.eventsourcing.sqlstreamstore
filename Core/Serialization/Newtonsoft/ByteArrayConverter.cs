@@ -2,19 +2,8 @@
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace LightestNight.System.EventSourcing.SqlStreamStore
+namespace LightestNight.System.EventSourcing.SqlStreamStore.Serialization.Newtonsoft
 {
-    public class Json
-    {
-        public static JsonSerializerSettings Settings => new JsonSerializerSettings
-        {
-            DateParseHandling = DateParseHandling.DateTimeOffset,
-            DateFormatHandling = DateFormatHandling.IsoDateFormat,
-            DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind,
-            Converters = { new ByteArrayConverter() }
-        };
-    }
-
     internal class ByteArrayConverter : JsonConverter
     {
         public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)

@@ -4,13 +4,20 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
-using Newtonsoft.Json;
+using LightestNight.System.EventSourcing.SqlStreamStore.Serialization;
 using SqlStreamStore.Streams;
 
 namespace LightestNight.System.EventSourcing.SqlStreamStore
 {
     public static class ExtendsStreamMessage
     {
+        private static readonly ISerializer Serializer;
+
+        static ExtendsStreamMessage()
+        {
+            Serializer = SerializerFactory.GetSerializer();
+        }
+        
         public static async Task<IEventSourceEvent> ToEvent(this StreamMessage message, IEnumerable<Type> eventTypes,
             CancellationToken cancellationToken = default)
         {
@@ -20,12 +27,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
                 version = Convert.ToInt32(metaVersion, CultureInfo.InvariantCulture);
             var eventType = eventTypes.GetEventType(typeName, version);
             
-            if (eventType == default)
+            if (eventType == default || eventType == null)
                 throw new InvalidOperationException($"No Event Type found to deserialize message: {typeName} as version {version}");
 
             var eventDataTask = message.GetJsonData(cancellationToken);
-            var evt = JsonConvert.DeserializeObject(await eventDataTask.ConfigureAwait(false), eventType,
-                Json.Settings);
+            var evt = Serializer.Deserialize(await eventDataTask.ConfigureAwait(false), eventType);
 
             if (evt is IEventSourceEvent eventSourceEvent)
                 return eventSourceEvent;
