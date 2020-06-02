@@ -11,7 +11,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Checkpoints
 
         [SuppressMessage("Suppress", "CA1801")]
         public static Task<long?> GetGlobalCheckpoint(CancellationToken cancellationToken = default)
-            => Checkpoints.TryGetValue(EventSourcing.Constants.GlobalCheckpointId, out var checkpoint)
+            => Checkpoints.TryGetValue(Constants.GlobalCheckpointId, out var checkpoint)
                 ? Task.FromResult((long?) checkpoint)
                 : Task.FromResult((long?) null);
 
@@ -19,9 +19,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Checkpoints
         public static Task SetGlobalCheckpoint(long? checkpoint, CancellationToken cancellationToken = default)
         {
             if (checkpoint.HasValue)
-                Checkpoints[EventSourcing.Constants.GlobalCheckpointId] = checkpoint.Value;
+                Checkpoints[Constants.GlobalCheckpointId] = checkpoint.Value;
             else
-                Checkpoints.Remove(EventSourcing.Constants.GlobalCheckpointId);
+                Checkpoints.Remove(Constants.GlobalCheckpointId);
 
             return Task.CompletedTask;
         }

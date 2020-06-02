@@ -80,7 +80,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                     new[]
                     {
                         new StreamMessage(streamId, Guid.NewGuid(), 0, 0, DateTime.UtcNow, nameof(TestEvent),
-                            JsonSerializer.Serialize(new Dictionary<string, object> {{EventSourcing.Constants.VersionKey, 0}}),
+                            JsonSerializer.Serialize(new Dictionary<string, object> {{Constants.VersionKey, 0}}),
                             JsonSerializer.Serialize(new TestEvent(Guid.NewGuid())))
                     }
                 ));
@@ -101,7 +101,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
                     new[]
                     {
                         new StreamMessage("Stream Message", Guid.NewGuid(), 0, 0, DateTime.UtcNow, nameof(TestEvent),
-                            JsonSerializer.Serialize(new Dictionary<string, object> {{EventSourcing.Constants.VersionKey, 0}}),
+                            JsonSerializer.Serialize(new Dictionary<string, object> {{Constants.VersionKey, 0}}),
                             JsonSerializer.Serialize(new TestEvent(Guid.NewGuid())))
                     }
                 ));

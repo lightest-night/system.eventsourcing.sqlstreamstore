@@ -121,7 +121,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
                             idx, 
                             DateTime.UtcNow, 
                             e.GetType().Name, 
-                            JsonSerializer.Serialize(new Dictionary<string, object> {{EventSourcing.Constants.VersionKey, 0}}),
+                            JsonSerializer.Serialize(new Dictionary<string, object> {{Constants.VersionKey, 0}}),
                             JsonSerializer.Serialize(e))).ToArray()
                     ));
         }

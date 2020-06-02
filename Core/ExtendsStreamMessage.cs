@@ -16,7 +16,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         {
             var typeName = message.Type;
             var version = 0;
-            if (message.TryGetEventMetadata(EventSourcing.Constants.VersionKey, out var metaVersion))
+            if (message.TryGetEventMetadata(Constants.VersionKey, out var metaVersion))
                 version = Convert.ToInt32(metaVersion, CultureInfo.InvariantCulture);
             var eventType = eventTypes.GetEventType(typeName, version);
             
@@ -25,7 +25,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
 
             var eventDataTask = message.GetJsonData(cancellationToken);
             var evt = JsonConvert.DeserializeObject(await eventDataTask.ConfigureAwait(false), eventType,
-                Constants.JsonSettings);
+                Json.Settings);
 
             if (evt is IEventSourceEvent eventSourceEvent)
                 return eventSourceEvent;
@@ -44,6 +44,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         }
 
         public static bool IsInSystemStream(this StreamMessage message)
-            => message.StreamId.StartsWith(EventSourcing.Constants.SystemStreamPrefix, StringComparison.InvariantCultureIgnoreCase);
+            => message.StreamId.StartsWith(Constants.SystemStreamPrefix, StringComparison.InvariantCultureIgnoreCase);
     }
 }

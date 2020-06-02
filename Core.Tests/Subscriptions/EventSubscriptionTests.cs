@@ -39,7 +39,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
             var evt = new TestEvent(Guid.NewGuid(),"Test Property");
             var headers = new Dictionary<string, object>
             {
-                {EventSourcing.Constants.VersionKey, 0}
+                {Constants.VersionKey, 0}
             };
             await _sut.StartAsync(CancellationToken.None).ConfigureAwait(false);
             

@@ -21,11 +21,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var version = Attributes.GetCustomAttributeValue<EventTypeAttribute, int>(eventClrType,
                 eventTypeAttribute => eventTypeAttribute.Version);
             headers ??= new Dictionary<string, object>();
-            headers.Add(EventSourcing.Constants.VersionKey, version);
-            headers.TryAdd(EventSourcing.Constants.TimestampKey, new DateTimeOffset(DateTime.UtcNow));
+            headers.Add(Constants.VersionKey, version);
+            headers.TryAdd(Constants.TimestampKey, new DateTimeOffset(DateTime.UtcNow));
 
-            var data = JsonConvert.SerializeObject(evt, eventClrType, Constants.JsonSettings);
-            var metadata = JsonConvert.SerializeObject(headers, Constants.JsonSettings);
+            var data = JsonConvert.SerializeObject(evt, eventClrType, Json.Settings);
+            var metadata = JsonConvert.SerializeObject(headers, Json.Settings);
 
             return new NewStreamMessage(Guid.NewGuid(), typeName, data, metadata);
         }

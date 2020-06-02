@@ -82,7 +82,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             var checkpoint = await _getGlobalCheckpoint(cancellationToken).ConfigureAwait(false);
             
             _subscription = _streamStore.SubscribeToAll(checkpoint, StreamMessageReceived, SubscriptionDropped);
-            _logger.LogInformation($"The {EventSourcing.Constants.GlobalCheckpointId} subscription has been created.");
+            _logger.LogInformation($"The {Constants.GlobalCheckpointId} subscription has been created.");
         }
         
         private async Task StreamMessageReceived(IAllStreamSubscription subscription, StreamMessage message, CancellationToken cancellationToken)
