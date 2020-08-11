@@ -94,6 +94,20 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
                 Times.Once);
         }
 
+        [Fact]
+        public void ShouldGetFullStreamId()
+        {
+            // Arrange
+            var aggregate = new TestAggregate();
+            
+            // Act
+            var result = _sut.GetStreamId(aggregate);
+            
+            // Assert
+            result.ShouldContain(nameof(TestAggregate));
+            result.ShouldContain(aggregate.Id.ToString());
+        }
+
         private void SetupReadStreamForwards(string streamId, IEnumerable<EventSourceEvent> events)
         {
             _streamStoreMock.As<IReadonlyStreamStore>()
