@@ -9,7 +9,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 {
     public class TestAggregate : EventSourceAggregate
     {
-        public TestAggregate(IEnumerable<IEventSourceEvent> events) : base(events){}
+        public TestAggregate(IEnumerable<EventSourceEvent> events) : base(events){}
 
         public TestAggregate()
         {

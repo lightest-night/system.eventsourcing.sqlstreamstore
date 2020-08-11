@@ -28,10 +28,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             _getEventTypes = getEventTypes;
         }
 
-        public async Task<T> GetById<T>(Guid id, CancellationToken cancellationToken = default) where T : class, IEventSourceAggregate
+        public async Task<TAggregate> GetById<TAggregate>(object id, CancellationToken cancellationToken = default) 
+            where TAggregate : class, IEventSourceAggregate
         {
-            var events = new List<IEventSourceEvent>();
-            var streamId = GenerateStreamId<T>(id);
+            var events = new List<EventSourceEvent>();
+            var streamId = GenerateStreamId<TAggregate>(id);
 
             var page = await _streamStore.ReadStreamForwards(streamId, StreamVersion.Start, 200, cancellationToken: cancellationToken).ConfigureAwait(false);
             while (page.Messages.Any())
@@ -42,11 +43,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
                 page = await page.ReadNext(cancellationToken).ConfigureAwait(false);
             }
 
-            var aggregate = _serviceFactory(typeof(T), events);
+            var aggregate = _serviceFactory(typeof(TAggregate), events);
             if (aggregate == null)
-                throw new NullReferenceException($"The aggregate of {typeof(T).Name} could not be built.");
+                throw new NullReferenceException($"The aggregate of {typeof(TAggregate).Name} could not be built.");
 
-            return (T) aggregate;
+            return (TAggregate) aggregate;
         }
 
         public async Task Save(IEventSourceAggregate aggregate, CancellationToken cancellationToken = default)
@@ -56,7 +57,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             if (!events.Any())
                 return;
 
-            var streamId = GenerateAggregateStreamId(aggregate);
+            var streamId = GenerateStreamId(aggregate.GetType().Name, aggregate.Id);
             var originalVersion = aggregate.Version - events.Length;
             var expectedVersion = originalVersion == 0
                 ? ExpectedVersion.NoStream
@@ -92,13 +93,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             _disposed = true;
         }
 
-        private static StreamId GenerateAggregateStreamId(IEventSourceAggregate aggregate)
-            => GenerateStreamId(aggregate.GetType().Name, aggregate.Id);
-        
-        private static StreamId GenerateStreamId<T>(Guid id)
+        private static StreamId GenerateStreamId<T>(object id)
             => GenerateStreamId(typeof(T).Name, id);
         
-        private static StreamId GenerateStreamId(string descriptor, Guid id)
+        private static StreamId GenerateStreamId<TId>(string descriptor, TId id)
             => new StreamId($"{descriptor}-{id}");
 
         ~SqlEventStore()

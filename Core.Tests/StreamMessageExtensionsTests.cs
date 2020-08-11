@@ -55,7 +55,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
             var result = await _streamMessage.ToEvent(types).ConfigureAwait(false);
             
             // Assert
-            result.ShouldBeAssignableTo<IEventSourceEvent>();
+            result.ShouldBeAssignableTo<EventSourceEvent>();
         }
 
         [Theory]

@@ -45,7 +45,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         public async Task ShouldOperateNoOpWhenSavingIfNoEventsPresent()
         {
             // Arrange
-            var aggregate = new TestAggregate(Enumerable.Empty<IEventSourceEvent>());
+            var aggregate = new TestAggregate(Enumerable.Empty<EventSourceEvent>());
             
             // Act
             await _sut.Save(aggregate).ConfigureAwait(false);
@@ -67,7 +67,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
             
             // Assert
             _streamStoreMock.Verify(streamStoreMock => streamStoreMock.AppendToStream(
-                It.Is<StreamId>(streamId => streamId.Value.Contains(aggregate.Id.ToString(), StringComparison.InvariantCultureIgnoreCase)),
+                It.Is<StreamId>(streamId => streamId.Value.Contains(aggregate.Id.ToString()!, StringComparison.InvariantCultureIgnoreCase)),
                 ExpectedVersion.NoStream,
                 It.Is<NewStreamMessage[]>(messages => messages.Any(message => message.Type == nameof(TestEvent))),
                 It.IsAny<CancellationToken>()),
@@ -87,14 +87,14 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
             
             // Assert
             _streamStoreMock.Verify(streamStoreMock => streamStoreMock.AppendToStream(
-                    It.Is<StreamId>(streamId => streamId.Value.Contains(aggregate.Id.ToString(), StringComparison.InvariantCultureIgnoreCase)),
+                    It.Is<StreamId>(streamId => streamId.Value.Contains(aggregate.Id.ToString()!, StringComparison.InvariantCultureIgnoreCase)),
                     It.Is<int>(version => version != ExpectedVersion.NoStream),
                     It.Is<NewStreamMessage[]>(messages => messages.Any(message => message.Type == nameof(TestEvent))),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
         }
 
-        private void SetupReadStreamForwards(string streamId, IEnumerable<IEventSourceEvent> events)
+        private void SetupReadStreamForwards(string streamId, IEnumerable<EventSourceEvent> events)
         {
             _streamStoreMock.As<IReadonlyStreamStore>()
                 .Setup(
@@ -122,7 +122,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
                             DateTime.UtcNow, 
                             e.GetType().Name, 
                             JsonSerializer.Serialize(new Dictionary<string, object> {{Constants.VersionKey, 0}}),
-                            JsonSerializer.Serialize(e))).ToArray()
+                            JsonSerializer.Serialize(e, e.GetType()))).ToArray()
                     ));
         }
     }

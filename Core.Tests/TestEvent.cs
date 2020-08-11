@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 {
     [EventType]
-    public class TestEvent : IEventSourceEvent
+    public class TestEvent : EventSourceEvent
     {
         public Guid Id { get; }
         public string? Property { get; }

@@ -18,7 +18,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             Serializer = SerializerFactory.GetSerializer();
         }
         
-        public static async Task<IEventSourceEvent> ToEvent(this StreamMessage message, IEnumerable<Type> eventTypes,
+        public static async Task<EventSourceEvent> ToEvent(this StreamMessage message, IEnumerable<Type> eventTypes,
             CancellationToken cancellationToken = default)
         {
             var typeName = message.Type;
@@ -30,10 +30,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             if (eventType == default || eventType == null)
                 throw new InvalidOperationException($"No Event Type found to deserialize message: {typeName} as version {version}");
 
-            var eventDataTask = message.GetJsonData(cancellationToken);
-            var evt = Serializer.Deserialize(await eventDataTask.ConfigureAwait(false), eventType);
+            // var eventDataTask = message.GetJsonData(cancellationToken);
+            // var evt = Serializer.Deserialize(await eventDataTask.ConfigureAwait(false), eventType);
+            var eventData = await message.GetJsonData(cancellationToken).ConfigureAwait(false);
+            var @event = Serializer.Deserialize(eventData, eventType);
 
-            if (evt is IEventSourceEvent eventSourceEvent)
+            if (@event is EventSourceEvent eventSourceEvent)
                 return eventSourceEvent;
 
             throw new InvalidOperationException(

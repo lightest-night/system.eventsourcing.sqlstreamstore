@@ -3,6 +3,10 @@
 
 The core elements to enable Event Sourcing paradigms using the [Sql Stream Store](https://github.com/SQLStreamStore/SQLStreamStore "Sql Stream Store") framework
 
+### Build Status
+![](https://github.com/lightest-night/system.eventsourcing.sqlstreamstore/workflows/CI/badge.svg)
+![](https://github.com/lightest-night/system.eventsourcing.sqlstreamstore/workflows/Release/badge.svg)
+
 #### How To Use
 ##### Registration
 * Asp.Net Standard/Core Dependency Injection
