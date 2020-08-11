@@ -57,7 +57,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             if (!events.Any())
                 return;
 
-            var streamId = GenerateStreamId(aggregate.GetType().Name, aggregate.Id);
+            var streamId = GetStreamId(aggregate);
             var originalVersion = aggregate.Version - events.Length;
             var expectedVersion = originalVersion == 0
                 ? ExpectedVersion.NoStream
@@ -92,6 +92,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
 
             _disposed = true;
         }
+
+        public string GetStreamId(IEventSourceAggregate aggregate)
+            => GenerateStreamId(aggregate.GetType().Name, aggregate.Id);
 
         private static StreamId GenerateStreamId<T>(object id)
             => GenerateStreamId(typeof(T).Name, id);
