@@ -37,8 +37,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="LightestNight.System.EventSourcing" Version="1.10.0-alpha0004" />
-      <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.6" />
+      <PackageReference Include="LightestNight.System.EventSourcing" Version="2.0.0" />
+      <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.7" />
       <PackageReference Include="SqlStreamStore" Version="1.2.0" />
       <PackageReference Include="System.Text.Json" Version="4.7.2" />
     </ItemGroup>
