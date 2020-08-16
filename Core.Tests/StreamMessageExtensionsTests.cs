@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using AutoFixture;
+using AutoFixture.Xunit2;
 using LightestNight.System.EventSourcing.Events;
+using LightestNight.System.EventSourcing.SqlStreamStore.Serialization;
 using Shouldly;
 using SqlStreamStore.Streams;
 using Xunit;
@@ -11,10 +15,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 {
     public class StreamMessageExtensionsTests
     {
+        private static readonly Fixture Fixture = new Fixture();
         private readonly StreamMessage _streamMessage;
 
         public StreamMessageExtensionsTests()
         {
+            SerializerFactory.SetSerializerToUse(Serializers.Utf8Json);
             _streamMessage = BuildMessage();
         }
 
@@ -26,8 +32,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
                 1,
                 DateTime.UtcNow,
                 nameof(TestEvent),
-                JsonSerializer.Serialize(new Dictionary<string, object> {{Constants.VersionKey, 0}, {"FindMe", true}}),
-                (token => Task.FromResult(JsonSerializer.Serialize(new TestEvent(Guid.NewGuid()))))
+                SerializerFactory.Get.Serialize(new Dictionary<string, object> {{Constants.VersionKey, 0}, {"FindMe", true}}),
+                (token => Task.FromResult(SerializerFactory.Get.Serialize(Fixture.Create<TestEvent>())))
             );
 
         [Theory]
@@ -46,13 +52,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
         
         [Fact]
-        public async Task ShouldSuccessfullyMapToAnIEventSourcingEventObject()
+        public async Task ShouldSuccessfullyMapToAnEventSourcingEventObject()
         {
-            // Arrange
-            var types = new[] {typeof(TestEvent)};
-            
             // Act
-            var result = await _streamMessage.ToEvent(types).ConfigureAwait(false);
+            var result = await _streamMessage.ToEvent(CancellationToken.None);
             
             // Assert
             result.ShouldBeAssignableTo<EventSourceEvent>();

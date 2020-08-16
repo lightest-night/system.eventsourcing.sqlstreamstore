@@ -13,7 +13,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
 
         static ExtendsEventSourceEvent()
         {
-            Serializer = SerializerFactory.GetSerializer();
+            Serializer = SerializerFactory.Get;
         }
         
         public static NewStreamMessage ToMessageData<TEvent>(this TEvent @event,

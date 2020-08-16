@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Replay;
 using Microsoft.Extensions.Logging;
@@ -21,7 +20,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
         protected const string StreamId = "ReplayTests";
 
         protected Mock<IStreamStore> StreamStoreMock { get; }
-        private Mock<GetEventTypes> GetEventTypesMock { get; }
         private EventSourcingOptions EventSourcingOptions { get; }
 
         protected IReplayManager Sut { get; }
@@ -29,15 +27,13 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
         protected ReplayManagerTestsFixture()
         {
             StreamStoreMock = new Mock<IStreamStore>();
-            GetEventTypesMock = new Mock<GetEventTypes>();
             EventSourcingOptions = new EventSourcingOptions();
             
             SetupReadStreamBackwards(StreamId);
             SetupReadStreamForwards(StreamId);
             
-            GetEventTypesMock.Setup(getEventTypes => getEventTypes()).Returns(new[] {typeof(TestEvent)});
             Sut = new ReplayManager(StreamStoreMock.Object, Options.Create(EventSourcingOptions),
-                GetEventTypesMock.Object, Mock.Of<ILogger<ReplayManager>>());
+                Mock.Of<ILogger<ReplayManager>>());
         }
 
         protected void SetupReadStreamBackwards(string streamId, int lastStreamVersion = ExpectedVersion.NoStream)

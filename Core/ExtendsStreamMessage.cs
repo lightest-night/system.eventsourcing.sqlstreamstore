@@ -15,23 +15,20 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
 
         static ExtendsStreamMessage()
         {
-            Serializer = SerializerFactory.GetSerializer();
+            Serializer = SerializerFactory.Get;
         }
         
-        public static async Task<EventSourceEvent> ToEvent(this StreamMessage message, IEnumerable<Type> eventTypes,
-            CancellationToken cancellationToken = default)
+        public static async Task<EventSourceEvent> ToEvent(this StreamMessage message, CancellationToken cancellationToken = default)
         {
             var typeName = message.Type;
             var version = 0;
             if (message.TryGetEventMetadata(Constants.VersionKey, out var metaVersion))
                 version = Convert.ToInt32(metaVersion, CultureInfo.InvariantCulture);
-            var eventType = eventTypes.GetEventType(typeName, version);
+            var eventType = EventCollection.GetEventType(typeName, version);
             
             if (eventType == default || eventType == null)
                 throw new InvalidOperationException($"No Event Type found to deserialize message: {typeName} as version {version}");
 
-            // var eventDataTask = message.GetJsonData(cancellationToken);
-            // var evt = Serializer.Deserialize(await eventDataTask.ConfigureAwait(false), eventType);
             var eventData = await message.GetJsonData(cancellationToken).ConfigureAwait(false);
             var @event = Serializer.Deserialize(eventData, eventType);
 

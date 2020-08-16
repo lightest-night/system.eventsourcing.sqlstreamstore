@@ -19,13 +19,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         
         private readonly IStreamStore _streamStore;
         private readonly ServiceFactory _serviceFactory;
-        private readonly GetEventTypes _getEventTypes;
 
-        public SqlEventStore(IStreamStore streamStore, ServiceFactory serviceFactory, GetEventTypes getEventTypes)
+        public SqlEventStore(IStreamStore streamStore, ServiceFactory serviceFactory)
         {
             _streamStore = streamStore;
             _serviceFactory = serviceFactory;
-            _getEventTypes = getEventTypes;
         }
 
         public async Task<TAggregate> GetById<TAggregate>(object id, CancellationToken cancellationToken = default) 
@@ -38,7 +36,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             while (page.Messages.Any())
             {
                 foreach (var message in page.Messages)
-                    events.Add(await message.ToEvent(_getEventTypes(), cancellationToken).ConfigureAwait(false));
+                    events.Add(await message.ToEvent(cancellationToken).ConfigureAwait(false));
 
                 page = await page.ReadNext(cancellationToken).ConfigureAwait(false);
             }

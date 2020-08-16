@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Checkpoints;
-using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -21,15 +18,20 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
         private readonly EventSubscription _sut;
         
         private object? _observedEvent;
+        private readonly ManualResetEventSlim _waitEvent = new ManualResetEventSlim(false);
 
         public EventSubscriptionTests()
         {
             _streamStore = new InMemoryStreamStore();
 
-            var observers = new IEventObserver[] {new TestObserver(true, evt => _observedEvent = evt)};
+            var observer = new TestObserver(true, @event =>
+            {
+                _observedEvent = @event;
+                _waitEvent.Set();
+            });
 
-            _sut = new EventSubscription(new NullLogger<EventSubscription>(), _streamStore, observers,
-                () => new[] {typeof(TestEvent)}, Mock.Of<SetGlobalCheckpoint>(), Mock.Of<GetGlobalCheckpoint>());
+            _sut = new EventSubscription(new NullLogger<EventSubscription>(), _streamStore, new []{observer},
+                Mock.Of<SetGlobalCheckpoint>(), Mock.Of<GetGlobalCheckpoint>());
         }
 
         [Fact]
@@ -37,25 +39,16 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
         {
             // Arrange
             var evt = new TestEvent(Guid.NewGuid(),"Test Property");
-            var headers = new Dictionary<string, object>
-            {
-                {Constants.VersionKey, 0}
-            };
             await _sut.StartAsync(CancellationToken.None).ConfigureAwait(false);
             
             // Act
             await _streamStore.AppendToStream(Guid.NewGuid().ToString(), ExpectedVersion.NoStream, new[]
-                {
-                    new NewStreamMessage(
-                        Guid.NewGuid(),
-                        nameof(TestEvent),
-                        JsonSerializer.Serialize(evt, evt.GetType()),
-                        JsonSerializer.Serialize(headers))
-                },
-                CancellationToken.None).ConfigureAwait(false);
+            {
+                evt.ToMessageData()
+            }, CancellationToken.None);
             
             // Give the subscription event time to fire
-            await Task.Delay(50).ConfigureAwait(false);
+            _waitEvent.Wait();
 
             // Assert
             var observedEvent = _observedEvent as TestEvent;
@@ -68,6 +61,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
         {
             _streamStore.Dispose();
             _sut.Dispose();
+            _waitEvent.Dispose();
         }
     }
 }

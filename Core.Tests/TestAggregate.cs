@@ -18,7 +18,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 
         public void SecondaryEvent()
         {
-            Publish(new TestEvent(Guid.NewGuid()));
+            Publish(new SecondaryTestEvent("Holla!"));
         }
         
         private void When(TestEvent e)

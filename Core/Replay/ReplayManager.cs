@@ -17,13 +17,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
     {
         private readonly IStreamStore _streamStore;
         private readonly EventSourcingOptions _options;
-        private readonly GetEventTypes _getEventTypes;
         private readonly ILogger<ReplayManager> _logger;
 
-        public ReplayManager(IStreamStore streamStore, IOptions<EventSourcingOptions> options, GetEventTypes getEventTypes, ILogger<ReplayManager> logger)
+        public ReplayManager(IStreamStore streamStore, IOptions<EventSourcingOptions> options, ILogger<ReplayManager> logger)
         {
             _streamStore = streamStore;
-            _getEventTypes = getEventTypes;
             _logger = logger;
             _options = options.ThrowIfNull(nameof(options)).Value;
         }
@@ -43,7 +41,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
                         continue;
                     }
                     
-                    var @event = await message.ToEvent(_getEventTypes(), cancellationToken).ConfigureAwait(false);
+                    var @event = await message.ToEvent(cancellationToken).ConfigureAwait(false);
                     await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken).ConfigureAwait(false);
                 }
 
@@ -69,7 +67,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             {
                 foreach (var message in page.Messages)
                 {
-                    var @event = await message.ToEvent(_getEventTypes(), cancellationToken).ConfigureAwait(false);
+                    var @event = await message.ToEvent(cancellationToken).ConfigureAwait(false);
                     await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken).ConfigureAwait(false);
                 }
 
