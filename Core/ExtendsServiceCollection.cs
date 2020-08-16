@@ -6,6 +6,7 @@ using LightestNight.System.EventSourcing.Persistence;
 using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Checkpoints;
 using LightestNight.System.EventSourcing.SqlStreamStore.Replay;
+using LightestNight.System.EventSourcing.SqlStreamStore.Serialization;
 using LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions;
 using LightestNight.System.ServiceResolution;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,12 +21,14 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         /// Adds the core elements required for EventSourcing into the build in DI framework
         /// </summary>
         /// <param name="services">The <see cref="IServiceCollection" /> that contains all the registered services</param>
-        /// <param name="optionsAccessor">An optional accessor containing <see cref="EventSourcingOptions" /></param>
+        /// <param name="serializerToUse">The Serializer to use when serializing and deserializing messages</param>
+        /// <param name="eventSourcingOptionsAccessor">An optional accessor containing <see cref="EventSourcingOptions" /></param>
         /// <param name="eventAssemblies">An optional collection of assemblies where to find the event types</param>
         /// <returns>The <see cref="IServiceCollection" /> populated with all the newly registered services</returns>
-        public static IServiceCollection AddEventStore(this IServiceCollection services, Action<EventSourcingOptions>? optionsAccessor = null, params Assembly[] eventAssemblies)
+        public static IServiceCollection AddEventStore(this IServiceCollection services, Serializers serializerToUse = Serializers.Newtonsoft, Action<EventSourcingOptions>? eventSourcingOptionsAccessor = null, params Assembly[] eventAssemblies)
         {
-            services.Configure(optionsAccessor);
+            SerializerFactory.SetSerializerToUse(serializerToUse);
+            services.Configure(eventSourcingOptionsAccessor);
             services.AddServiceResolution();
             services.TryAddSingleton<GetEventTypes>(() => EventCollection.GetEventTypes(eventAssemblies));
             services.TryAddSingleton<IReplayManager, ReplayManager>();
@@ -37,13 +40,14 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         /// Adds the core elements required for EventSourcing using an in memory Event Store into the build in DI framework
         /// </summary>
         /// <param name="services">The <see cref="IServiceCollection" /> that contains all the registered services</param>
+        /// <param name="serializerToUse">The Serializer to use when serializing and deserializing messages</param>
         /// <param name="optionsAccessor">An optional accessor containing <see cref="EventSourcingOptions" /></param>
         /// <param name="eventAssemblies">An optional collection of assemblies where to find the event types</param>
         /// <returns>The <see cref="IServiceCollection" /> populated with all the newly registered services</returns>
-        public static IServiceCollection AddInMemoryEventStore(this IServiceCollection services,
+        public static IServiceCollection AddInMemoryEventStore(this IServiceCollection services, Serializers serializerToUse = Serializers.Newtonsoft,
             Action<EventSourcingOptions>? optionsAccessor = null, params Assembly[] eventAssemblies)
         {
-            services.AddEventStore(optionsAccessor, eventAssemblies)
+            services.AddEventStore(serializerToUse, optionsAccessor, eventAssemblies)
                 .AddSingleton<IStreamStore, InMemoryStreamStore>();
 
             services.TryAddSingleton<GetGlobalCheckpoint>(_ => CheckpointManager.GetGlobalCheckpoint);
