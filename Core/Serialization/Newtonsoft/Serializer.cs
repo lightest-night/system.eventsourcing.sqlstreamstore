@@ -14,6 +14,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Serialization.Newton
                 DateParseHandling = DateParseHandling.DateTimeOffset,
                 DateFormatHandling = DateFormatHandling.IsoDateFormat,
                 DateTimeZoneHandling = DateTimeZoneHandling.RoundtripKind,
+                TypeNameHandling = TypeNameHandling.Auto,
                 Converters = { new ByteArrayConverter() }
             };    
         }
