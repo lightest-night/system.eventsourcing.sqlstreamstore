@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoFixture;
-using AutoFixture.Xunit2;
 using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.SqlStreamStore.Serialization;
 using Shouldly;
@@ -20,7 +18,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 
         public StreamMessageExtensionsTests()
         {
-            SerializerFactory.SetSerializerToUse(Serializers.Utf8Json);
             _streamMessage = BuildMessage();
         }
 
