@@ -36,7 +36,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
                 return eventSourceEvent;
 
             throw new InvalidOperationException(
-                $"Event Type found to deserialize message: {typeName} at version {version} is not of IEventSourceEvent.");
+                $"Event Type found to deserialize message: {typeName} at version {version} is not of EventSourceEvent.");
         }
         
         public static bool TryGetEventMetadata(this StreamMessage message, string key, out object result)
