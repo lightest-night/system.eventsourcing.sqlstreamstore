@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Replay;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Moq;
 using Shouldly;
 using SqlStreamStore;
@@ -31,9 +30,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
             
             SetupReadStreamBackwards(StreamId);
             SetupReadStreamForwards(StreamId);
-            
-            Sut = new ReplayManager(StreamStoreMock.Object, Options.Create(EventSourcingOptions),
-                Mock.Of<ILogger<ReplayManager>>());
+
+            Sut = new ReplayManager(StreamStoreMock.Object, EventSourcingOptions, Mock.Of<ILogger<ReplayManager>>());
         }
 
         protected void SetupReadStreamBackwards(string streamId, int lastStreamVersion = ExpectedVersion.NoStream)

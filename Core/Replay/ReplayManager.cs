@@ -1,13 +1,12 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Replay;
-using LightestNight.System.Utilities.Extensions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using SqlStreamStore;
 using SqlStreamStore.Streams;
 
@@ -19,11 +18,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
         private readonly EventSourcingOptions _options;
         private readonly ILogger<ReplayManager> _logger;
 
-        public ReplayManager(IStreamStore streamStore, IOptions<EventSourcingOptions> options, ILogger<ReplayManager> logger)
+        public ReplayManager(IStreamStore streamStore, EventSourcingOptions options, ILogger<ReplayManager> logger)
         {
-            _streamStore = streamStore;
-            _logger = logger;
-            _options = options.ThrowIfNull(nameof(options)).Value;
+            _streamStore = streamStore ?? throw new ArgumentNullException(nameof(streamStore));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _options = options ?? throw new ArgumentNullException(nameof(options));
         }
 
         public async Task<long> ReplayProjectionFrom(long? fromCheckpoint, EventReceived eventReceived, [CallerMemberName]string? projectionName = default,

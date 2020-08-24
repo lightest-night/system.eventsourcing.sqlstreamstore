@@ -27,11 +27,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
         public EventSubscription(ILogger<EventSubscription> logger, IStreamStore streamStore, IEnumerable<IEventObserver> eventObservers, SetGlobalCheckpoint setGlobalCheckpoint,
             GetGlobalCheckpoint getGlobalCheckpoint)
         {
-            _logger = logger;
-            _streamStore = streamStore;
-            _eventObservers = eventObservers;
-            _setGlobalCheckpoint = setGlobalCheckpoint;
-            _getGlobalCheckpoint = getGlobalCheckpoint;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _streamStore = streamStore ?? throw new ArgumentNullException(nameof(streamStore));
+            _eventObservers = eventObservers ?? throw new ArgumentNullException(nameof(eventObservers));
+            _setGlobalCheckpoint = setGlobalCheckpoint ?? throw new ArgumentNullException(nameof(setGlobalCheckpoint));
+            _getGlobalCheckpoint = getGlobalCheckpoint ?? throw new ArgumentNullException(nameof(getGlobalCheckpoint));
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)

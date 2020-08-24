@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Reflection;
 using LightestNight.System.EventSourcing.Checkpoints;
 using LightestNight.System.EventSourcing.Persistence;
 using LightestNight.System.EventSourcing.Replay;
@@ -10,6 +9,7 @@ using LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions;
 using LightestNight.System.ServiceResolution;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using SqlStreamStore;
 
 namespace LightestNight.System.EventSourcing.SqlStreamStore
@@ -28,10 +28,17 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             if (customSerializer != null)
                 SerializerFactory.SetSerializer(customSerializer);
             
-            if (eventSourcingOptionsAccessor != null)
-                services.Configure(eventSourcingOptionsAccessor);
-            
             services.AddServiceResolution();
+            services.TryAddSingleton(sp =>
+            {
+                var logger = sp.GetService<ILogger>();
+                logger?.LogDebug("Adding Event Sourcing Options");
+                
+                var options = new EventSourcingOptions();
+                eventSourcingOptionsAccessor?.Invoke(options);
+
+                return options;
+            });
             services.TryAddSingleton<IReplayManager, ReplayManager>();
             services.TryAddSingleton<IEventPersistence, SqlEventStore>();
             return services.AddHostedService<EventSubscription>();
