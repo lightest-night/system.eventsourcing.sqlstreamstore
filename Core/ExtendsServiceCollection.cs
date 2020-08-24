@@ -29,7 +29,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             if (customSerializer != null)
                 SerializerFactory.SetSerializer(customSerializer);
             
-            services.Configure(eventSourcingOptionsAccessor);
+            if (eventSourcingOptionsAccessor != null)
+                services.Configure(eventSourcingOptionsAccessor);
+            
             services.AddServiceResolution();
             services.TryAddSingleton<IReplayManager, ReplayManager>();
             services.TryAddSingleton<IEventPersistence, SqlEventStore>();
