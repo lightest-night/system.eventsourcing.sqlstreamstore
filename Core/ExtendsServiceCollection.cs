@@ -22,9 +22,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         /// <param name="services">The <see cref="IServiceCollection" /> that contains all the registered services</param>
         /// <param name="customSerializer">The custom serializer to use when serializing and deserializing messages</param>
         /// <param name="eventSourcingOptionsAccessor">An optional accessor containing <see cref="EventSourcingOptions" /></param>
-        /// <param name="eventAssemblies">An optional collection of assemblies where to find the event types</param>
         /// <returns>The <see cref="IServiceCollection" /> populated with all the newly registered services</returns>
-        public static IServiceCollection AddEventStore(this IServiceCollection services, ISerializer? customSerializer = null, Action<EventSourcingOptions>? eventSourcingOptionsAccessor = null, params Assembly[] eventAssemblies)
+        public static IServiceCollection AddEventStore(this IServiceCollection services, ISerializer? customSerializer = null, Action<EventSourcingOptions>? eventSourcingOptionsAccessor = null)
         {
             if (customSerializer != null)
                 SerializerFactory.SetSerializer(customSerializer);
@@ -44,12 +43,11 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         /// <param name="services">The <see cref="IServiceCollection" /> that contains all the registered services</param>
         /// <param name="customSerializer">The custom serializer to use when serializing and deserializing messages</param>
         /// <param name="optionsAccessor">An optional accessor containing <see cref="EventSourcingOptions" /></param>
-        /// <param name="eventAssemblies">An optional collection of assemblies where to find the event types</param>
         /// <returns>The <see cref="IServiceCollection" /> populated with all the newly registered services</returns>
         public static IServiceCollection AddInMemoryEventStore(this IServiceCollection services, ISerializer? customSerializer = null,
-            Action<EventSourcingOptions>? optionsAccessor = null, params Assembly[] eventAssemblies)
+            Action<EventSourcingOptions>? optionsAccessor = null)
         {
-            services.AddEventStore(customSerializer, optionsAccessor, eventAssemblies)
+            services.AddEventStore(customSerializer, optionsAccessor)
                 .AddSingleton<IStreamStore, InMemoryStreamStore>();
 
             services.TryAddSingleton<GetGlobalCheckpoint>(_ => CheckpointManager.GetGlobalCheckpoint);
