@@ -40,9 +40,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions
             stoppingToken.Register(() => _logger.LogInformation($"{nameof(EventSubscription)} is stopping..."));
 
             if (!_eventObservers.Any())
+            {
                 // There are no observers registered in the system, stop processing
-                return;
-            
+                _logger.LogDebug("No event observers registered, nothing to do..");
+                return;   
+            }
+
             foreach (var eventObserver in _eventObservers)
             {
                 eventObserver.PropertyChanged += async (sender, args) =>
