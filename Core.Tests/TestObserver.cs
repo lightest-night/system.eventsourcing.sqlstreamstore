@@ -32,5 +32,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
             IsDisposed = true;
             return new ValueTask();
         }
+
+        public void Dispose()
+        {
+            IsDisposed = true;
+        }
     }
 }
