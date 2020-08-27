@@ -9,9 +9,10 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
     {
         private readonly Action<object> _outcome;
         
-        public TestObserver(bool isActive, Action<object> outcome)
+        public TestObserver(bool isActive, bool isReplaying, Action<object> outcome)
         {
             IsActive = isActive;
+            IsReplaying = isReplaying;
             _outcome = outcome;
         }
 
@@ -25,5 +26,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
 
         public bool IsActive { get; }
+        public bool IsReplaying { get; }
     }
 }

@@ -27,7 +27,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Subscript
         {
             _streamStore = new InMemoryStreamStore();
 
-            _observer = new TestObserver(true, @event =>
+            _observer = new TestObserver(true, false, @event =>
             {
                 _observedEvent = @event;
                 _waitEvent.Set();
