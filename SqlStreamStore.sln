@@ -14,6 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{
 ProjectSection(SolutionItems) = preProject
 	.github\workflows\CI.yml = .github\workflows\CI.yml
 	.github\workflows\Release.yml = .github\workflows\Release.yml
+	GitVersion.yml = GitVersion.yml
 EndProjectSection
 EndProject
 Global
