@@ -25,17 +25,5 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
         }
 
         public bool IsActive { get; }
-        public bool IsDisposed { get; set; }
-
-        public ValueTask DisposeAsync()
-        {
-            IsDisposed = true;
-            return new ValueTask();
-        }
-
-        public void Dispose()
-        {
-            IsDisposed = true;
-        }
     }
 }
