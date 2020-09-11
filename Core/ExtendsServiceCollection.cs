@@ -5,7 +5,6 @@ using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Checkpoints;
 using LightestNight.System.EventSourcing.SqlStreamStore.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Serialization;
-using LightestNight.System.EventSourcing.SqlStreamStore.Subscriptions;
 using LightestNight.System.ServiceResolution;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -41,7 +40,8 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             });
             services.TryAddSingleton<IReplayManager, ReplayManager>();
             services.TryAddSingleton<IEventPersistence, SqlEventStore>();
-            return services.AddHostedService<EventSubscription>();
+            return services;
+            //return services.AddHostedService<EventSubscription>();
         }
 
         /// <summary>
