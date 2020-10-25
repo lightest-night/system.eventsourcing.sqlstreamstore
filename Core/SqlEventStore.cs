@@ -8,7 +8,6 @@ using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Persistence;
 using LightestNight.System.ServiceResolution;
 using LightestNight.System.Utilities.Extensions;
-using SqlStreamStore;
 using SqlStreamStore.Streams;
 
 namespace LightestNight.System.EventSourcing.SqlStreamStore
@@ -17,22 +16,24 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
     {
         private bool _disposed;
         
-        private readonly IStreamStore _streamStore;
+        private readonly IStreamStoreFactory _streamStoreFactory;
         private readonly ServiceFactory _serviceFactory;
 
-        public SqlEventStore(IStreamStore streamStore, ServiceFactory serviceFactory)
+        public SqlEventStore(IStreamStoreFactory streamStoreFactory, ServiceFactory serviceFactory)
         {
-            _streamStore = streamStore;
-            _serviceFactory = serviceFactory;
+            _streamStoreFactory = streamStoreFactory ?? throw new ArgumentNullException(nameof(streamStoreFactory));
+            _serviceFactory = serviceFactory ?? throw new ArgumentNullException(nameof(serviceFactory));
         }
 
         public async Task<TAggregate> GetById<TAggregate>(object id, CancellationToken cancellationToken = default) 
             where TAggregate : class, IEventSourceAggregate
         {
+            var streamStoreTask = _streamStoreFactory.GetStreamStore(cancellationToken: cancellationToken);
             var events = new List<EventSourceEvent>();
             var streamId = GenerateStreamId<TAggregate>(id);
 
-            var page = await _streamStore.ReadStreamForwards(streamId, StreamVersion.Start, 200, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var streamStore = await streamStoreTask.ConfigureAwait(false);
+            var page = await streamStore.ReadStreamForwards(streamId, StreamVersion.Start, 200, cancellationToken: cancellationToken).ConfigureAwait(false);
             while (page.Messages.Any())
             {
                 foreach (var message in page.Messages)
@@ -50,6 +51,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
 
         public async Task Save(IEventSourceAggregate aggregate, CancellationToken cancellationToken = default)
         {
+            var streamStoreTask = _streamStoreFactory.GetStreamStore(cancellationToken: cancellationToken);
             aggregate = aggregate.ThrowIfNull(nameof(aggregate));
             var events = aggregate.GetUncommittedEvents().ToArray();
             if (!events.Any())
@@ -62,7 +64,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
                 : originalVersion - 1;
             
             var messagesToPersist = events.Select(evt => evt.ToMessageData()).ToArray();
-            await _streamStore.AppendToStream(streamId, expectedVersion, messagesToPersist, cancellationToken);
+
+            var streamStore = await streamStoreTask.ConfigureAwait(false);
+            await streamStore.AppendToStream(streamId, expectedVersion, messagesToPersist, cancellationToken);
             
             // We get all the way through the process, then we clear the uncommitted events. They are now processed, they are no longer *un*committed
             aggregate.ClearUncommittedEvents();
@@ -84,9 +88,6 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
         {
             if (_disposed)
                 return;
-
-            if (disposing)
-                _streamStore.Dispose();
 
             _disposed = true;
         }
