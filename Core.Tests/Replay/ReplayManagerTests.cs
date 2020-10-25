@@ -25,13 +25,18 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
 
         protected ReplayManagerTestsFixture()
         {
+            
             StreamStoreMock = new Mock<IStreamStore>();
             EventSourcingOptions = new EventSourcingOptions();
             
             SetupReadStreamBackwards(StreamId);
             SetupReadStreamForwards(StreamId);
 
-            Sut = new ReplayManager(StreamStoreMock.Object, EventSourcingOptions, Mock.Of<ILogger<ReplayManager>>());
+            var streamStoreFactoryMock = new Mock<IStreamStoreFactory>();
+            streamStoreFactoryMock
+                .Setup(streamStoreFactory => streamStoreFactory.GetStreamStore(3, CancellationToken.None))
+                .ReturnsAsync(StreamStoreMock.Object);
+            Sut = new ReplayManager(streamStoreFactoryMock.Object, EventSourcingOptions, Mock.Of<ILogger<ReplayManager>>());
         }
 
         protected void SetupReadStreamBackwards(string streamId, int lastStreamVersion = ExpectedVersion.NoStream)
