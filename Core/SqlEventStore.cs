@@ -33,7 +33,9 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var streamId = GenerateStreamId<TAggregate>(id);
 
             var streamStore = await streamStoreTask.ConfigureAwait(false);
-            var page = await streamStore.ReadStreamForwards(streamId, StreamVersion.Start, 200, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var page = await streamStore
+                .ReadStreamForwards(streamId, StreamVersion.Start, 200, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
             while (page.Messages.Any())
             {
                 foreach (var message in page.Messages)
