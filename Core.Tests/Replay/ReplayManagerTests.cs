@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Replay;
 using LightestNight.System.EventSourcing.SqlStreamStore.Replay;
 using Microsoft.Extensions.Logging;
@@ -25,7 +27,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
 
         protected ReplayManagerTestsFixture()
         {
-            
+            EventCollection.AddAssemblyTypes(Assembly.GetExecutingAssembly());
             StreamStoreMock = new Mock<IStreamStore>();
             EventSourcingOptions = new EventSourcingOptions();
             
