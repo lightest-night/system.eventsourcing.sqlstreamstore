@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoFixture;
@@ -18,6 +19,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 
         public StreamMessageExtensionsTests()
         {
+            EventCollection.AddAssemblyTypes(Assembly.GetExecutingAssembly());
             _streamMessage = BuildMessage();
         }
 

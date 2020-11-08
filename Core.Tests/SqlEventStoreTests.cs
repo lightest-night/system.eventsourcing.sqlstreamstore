@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using LightestNight.System.EventSourcing.Events;
 using LightestNight.System.EventSourcing.Persistence;
 using Moq;
 using Shouldly;
@@ -18,6 +20,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
 
         public SqlEventStoreTests()
         {
+            EventCollection.AddAssemblyTypes(Assembly.GetExecutingAssembly(), Assembly.GetCallingAssembly());
             var streamStoreFactoryMock = new Mock<IStreamStoreFactory>();
             streamStoreFactoryMock
                 .Setup(streamStoreFactory => streamStoreFactory.GetStreamStore(3, CancellationToken.None))
