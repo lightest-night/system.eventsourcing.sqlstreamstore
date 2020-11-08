@@ -32,11 +32,12 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore
             var eventData = await message.GetJsonData(cancellationToken).ConfigureAwait(false);
             var @event = Serializer.Deserialize(eventData, eventType);
 
-            if (@event is EventSourceEvent eventSourceEvent)
-                return eventSourceEvent;
-
-            throw new InvalidOperationException(
-                $"Event Type found to deserialize message: {typeName} at version {version} is not of EventSourceEvent.");
+            if (!(@event is EventSourceEvent eventSourceEvent))
+                throw new InvalidOperationException(
+                    $"Event Type found to deserialize message: {typeName} at version {version} is not of EventSourceEvent.");
+            
+            eventSourceEvent.Position = message.Position;
+            return eventSourceEvent;
         }
         
         public static bool TryGetEventMetadata(this StreamMessage message, string key, out object result)

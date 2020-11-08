@@ -31,7 +31,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             var streamStore = await _streamStoreFactory.GetStreamStore(cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             var page = await streamStore.ReadAllForwards(fromCheckpoint ?? Position.Start,
-                _options.MaxReadStreamForward, false, cancellationToken).ConfigureAwait(false);
+                _options.MaxReadStreamForward, true, cancellationToken).ConfigureAwait(false);
             while (page.Messages.Any())
             {
                 foreach (var message in page.Messages)
@@ -43,7 +43,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
                     }
                     
                     var @event = await message.ToEvent(cancellationToken).ConfigureAwait(false);
-                    await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken).ConfigureAwait(false);
+                    await eventReceived(@event, cancellationToken).ConfigureAwait(false);
                 }
 
                 page = await page.ReadNext(cancellationToken).ConfigureAwait(false);
@@ -71,7 +71,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
                 foreach (var message in page.Messages)
                 {
                     var @event = await message.ToEvent(cancellationToken).ConfigureAwait(false);
-                    await eventReceived(@event, message.Position, message.StreamVersion, cancellationToken).ConfigureAwait(false);
+                    await eventReceived(@event, cancellationToken).ConfigureAwait(false);
                 }
 
                 page = await page.ReadNext(cancellationToken).ConfigureAwait(false);

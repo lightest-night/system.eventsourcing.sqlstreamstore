@@ -115,7 +115,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
         public async Task ShouldGetLastVersionWhenReplaying()
         {
             // Act
-            await Sut.ReplayProjectionFrom(ReplayManagerTestsFixture.StreamId, 0, (o, position, version, token) => Task.CompletedTask,
+            await Sut.ReplayProjectionFrom(StreamId, 0, (o, token) => Task.CompletedTask,
                 CancellationToken.None).ConfigureAwait(false);
 
             // Assert
@@ -136,7 +136,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
             SetupReadStreamBackwards(StreamId, 100);
 
             // Act
-            await Sut.ReplayProjectionFrom(StreamId, checkpoint, (o, position, version, token) => Task.CompletedTask,
+            await Sut.ReplayProjectionFrom(StreamId, checkpoint, (o, token) => Task.CompletedTask,
                 CancellationToken.None).ConfigureAwait(false);
 
             // Assert
@@ -158,7 +158,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
 
             var fired = false;
 
-            Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+            Task EventReceived(object @event, CancellationToken token)
             {
                 fired = true;
                 return Task.CompletedTask;
@@ -177,7 +177,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
             // Arrange
             SetupReadStreamBackwards(StreamId, 100);
 
-            static Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+            static Task EventReceived(object @event, CancellationToken token)
             {
                 // Assert
                 @event.ShouldBeOfType<TestEvent>();
@@ -199,7 +199,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
             SetupReadAllForwards();
 
             // Act
-            await Sut.ReplayProjectionFrom(checkpoint, (o, position, version, token) => Task.CompletedTask,
+            await Sut.ReplayProjectionFrom(checkpoint, (o, token) => Task.CompletedTask,
                 cancellationToken: CancellationToken.None).ConfigureAwait(false);
 
             // Assert
@@ -219,7 +219,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
             const long checkpoint = 10;
             var fired = false;
 
-            Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+            Task EventReceived(object @event, CancellationToken token)
             {
                 fired = true;
                 return Task.CompletedTask;
@@ -238,7 +238,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests.Replay
             // Arrange
             SetupReadAllForwards();
 
-            static Task EventReceived(object @event, long? position, int? version, CancellationToken token)
+            static Task EventReceived(object @event, CancellationToken token)
             {
                 // Assert
                 @event.ShouldBeOfType<TestEvent>();
