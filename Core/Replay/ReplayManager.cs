@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -31,54 +32,69 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Replay
             var streamStore = await _streamStoreFactory.GetStreamStore(cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
             var page = await streamStore.ReadAllForwards(fromCheckpoint ?? Position.Start,
-                _options.MaxReadStreamForward, true, cancellationToken).ConfigureAwait(false);
+                _options.MaxReadStreamForward, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            var events = new Queue<EventSourceEvent>();
             while (page.Messages.Any())
             {
-                foreach (var message in page.Messages)
+                foreach (var message in page.Messages.Where(msg => !msg.IsInSystemStream()))
                 {
-                    if (message.IsInSystemStream())
-                    {
-                        _logger.LogInformation($"Event {message.Type} is in a System stream therefore being skipped during replay.");
-                        continue;
-                    }
-                    
                     var @event = await message.ToEvent(cancellationToken).ConfigureAwait(false);
-                    await eventReceived(@event, cancellationToken).ConfigureAwait(false);
+                    events.Enqueue(@event);
                 }
 
                 page = await page.ReadNext(cancellationToken).ConfigureAwait(false);
             }
 
+            _logger.LogInformation("Events to Replay: {eventCount}", events.Count);
+            while (events.Count > 0)
+            {
+                var @event = events.Dequeue();
+                await eventReceived(@event, cancellationToken).ConfigureAwait(false);
+            }
+
             stopwatch.Stop();
-            _logger.LogInformation($"{projectionName} replayed in {stopwatch.ElapsedMilliseconds}ms.");
+            _logger.LogInformation("{projectionName} replayed in {ms}ms.", projectionName,
+                stopwatch.ElapsedMilliseconds);
 
             return page.NextPosition - 1;
         }
 
-        public async Task<int> ReplayProjectionFrom(string streamId, int fromCheckpoint, EventReceived eventReceived, CancellationToken cancellationToken = default)
+        public async Task<int> ReplayProjectionFrom(string streamId, int fromCheckpoint, EventReceived eventReceived,
+            CancellationToken cancellationToken = default)
         {
             var streamStore = await _streamStoreFactory.GetStreamStore(cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
-            var streamVersion = await streamStore.GetLastVersionOfStream(streamId, cancellationToken).ConfigureAwait(false);
-            if (streamVersion - fromCheckpoint <= _options.SubscriptionCheckpointDelta) 
+            var streamVersion =
+                await streamStore.GetLastVersionOfStream(streamId, cancellationToken).ConfigureAwait(false);
+            if (streamVersion - fromCheckpoint <= _options.SubscriptionCheckpointDelta)
                 return fromCheckpoint;
-            
+
             var stopwatch = Stopwatch.StartNew();
             var page = await streamStore.ReadStreamForwards(streamId, fromCheckpoint, _options.MaxReadStreamForward,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            var events = new Queue<EventSourceEvent>();
             while (page.Messages.Any())
             {
-                foreach (var message in page.Messages)
+                foreach (var message in page.Messages.Where(msg => !msg.IsInSystemStream()))
                 {
                     var @event = await message.ToEvent(cancellationToken).ConfigureAwait(false);
-                    await eventReceived(@event, cancellationToken).ConfigureAwait(false);
+                    events.Enqueue(@event);
                 }
 
                 page = await page.ReadNext(cancellationToken).ConfigureAwait(false);
             }
 
+            _logger.LogInformation("Events to Replay: {eventCount}", events.Count);
+            while (events.Count > 0)
+            {
+                var @event = events.Dequeue();
+                await eventReceived(@event, cancellationToken).ConfigureAwait(false);
+            }
+
             stopwatch.Stop();
-            _logger.LogInformation($"{streamId} caught up in {stopwatch.ElapsedMilliseconds}ms.");
+            _logger.LogInformation("{streamId} caught up in {ms}ms.", streamId, stopwatch.ElapsedMilliseconds);
 
             return page.LastStreamVersion;
         }

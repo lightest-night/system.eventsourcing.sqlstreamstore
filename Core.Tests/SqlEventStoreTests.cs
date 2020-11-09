@@ -94,7 +94,7 @@ namespace LightestNight.System.EventSourcing.SqlStreamStore.Core.Tests
             
             // Assert
             result.ShouldContain(nameof(TestAggregate));
-            result.ShouldContain(aggregate.Id.ToString());
+            result.ShouldContain(aggregate.Id.ToString()!);
         }
     }
 }
